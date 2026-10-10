@@ -3,7 +3,67 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>3-Day PPL Workout Tracker</title>
+<title>PPL Gym Workout Tracker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { 
+    getAuth, 
+    signInAnonymously, 
+    signInWithCustomToken,
+    signInWithEmailAndPassword, 
+    createUserWithEmailAndPassword,
+    signOut, 
+    onAuthStateChanged 
+  } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import { 
+    getFirestore, 
+    doc, 
+    setDoc, 
+    getDoc, 
+    collection, 
+    getDocs, 
+    addDoc, 
+    query, 
+    onSnapshot 
+  } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+  const appId = typeof __app_id !== 'undefined' ? __app_id : 'ppl-workout-tracker';
+  const firebaseConfig = typeof __firebase_config !== 'undefined' 
+    ? JSON.parse(__firebase_config) 
+    : {
+        apiKey: "AIzaSyDemoConfigKeyOnlyForFallback123456",
+        authDomain: "demo-app.firebaseapp.com",
+        projectId: "demo-app",
+        storageBucket: "demo-app.appspot.com",
+        messagingSenderId: "1234567890",
+        appId: "1:1234567890:web:abcdef123456"
+      };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  window.firebaseAuth = auth;
+  window.firebaseDb = db;
+  window.appId = appId;
+  window.firebaseModule = {
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signInAnonymously,
+    signInWithCustomToken,
+    signOut,
+    doc,
+    setDoc,
+    getDoc,
+    collection,
+    getDocs,
+    addDoc,
+    query,
+    onSnapshot
+  };
+</script>
+
 <style>
   :root {
     --bg-color: #0f172a;
@@ -14,672 +74,616 @@
     --accent-green: #22c55e;
     --accent-blue: #3b82f6;
     --border-color: #334155;
-    --completed-bg: #111827;
   }
 
-  * {
-    box-sizing: border-box;
+  body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     user-select: none;
     -webkit-user-select: none;
   }
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--bg-color);
-    color: var(--text-primary);
-    margin: 0;
-    padding: 16px;
-    max-width: 800px;
-    margin: 0 auto;
-    line-height: 1.4;
-    padding-bottom: 40px;
+  /* Exercise Card Check State */
+  .exercise-card.completed {
+    opacity: 0.55;
+    background-color: #0d1527;
+    border-color: #334155;
   }
-
-  .header {
-    text-align: center;
-    padding: 8px 0 16px;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 16px;
-  }
-
-  .header h1 {
-    font-size: 1.5rem;
-    margin: 0 0 4px 0;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-  }
-
-  .header p {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin: 0;
-  }
-
-  .filter-bar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 20px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .filter-btn {
-    background-color: var(--card-bg);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
-    padding: 10px 16px;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s ease;
-    flex: 1;
-    text-align: center;
-  }
-
-  .filter-btn:hover {
-    color: var(--text-primary);
-    border-color: #475569;
-  }
-
-  .filter-btn.active {
-    background-color: #334155;
-    color: #ffffff;
-    border-color: #64748b;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  }
-
-  .filter-btn.active[data-filter="push"] {
-    background-color: rgba(239, 68, 68, 0.2);
-    border-color: var(--accent-red);
-    color: #fca5a5;
-  }
-
-  .filter-btn.active[data-filter="pull"] {
-    background-color: rgba(34, 197, 94, 0.2);
-    border-color: var(--accent-green);
-    color: #86efac;
-  }
-
-  .filter-btn.active[data-filter="legs"] {
-    background-color: rgba(59, 130, 246, 0.2);
-    border-color: var(--accent-blue);
-    color: #93c5fd;
-  }
-
-  .action-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-  }
-
-  .progress-text {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-  }
-
-  .reset-btn {
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .reset-btn:hover {
-    color: var(--accent-red);
-    border-color: var(--accent-red);
-  }
-
-  .day-card {
-    background-color: var(--card-bg);
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 20px;
-    border: 1px solid var(--border-color);
-    transition: transform 0.2s ease, opacity 0.2s ease;
-  }
-
-  .day-card.hidden {
-    display: none;
-  }
-
-  .day-title {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 1.2rem;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
-
-  .push .day-title { color: var(--accent-red); }
-  .pull .day-title { color: var(--accent-green); }
-  .legs .day-title { color: var(--accent-blue); }
-
-  .time-tag {
-    font-size: 0.75rem;
-    background-color: #0f172a;
-    padding: 4px 10px;
-    border-radius: 12px;
-    color: var(--text-secondary);
-    font-weight: normal;
-  }
-
-  .day-subtitle {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin-bottom: 16px;
-  }
-
-  /* Exercise Card Styles */
-  .exercise-item {
-    background-color: #0f172a;
-    border-radius: 10px;
-    padding: 12px 14px;
-    margin-bottom: 10px;
-    border-left: 4px solid var(--border-color);
-    cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .push .exercise-item { border-left-color: var(--accent-red); }
-  .pull .exercise-item { border-left-color: var(--accent-green); }
-  .legs .exercise-item { border-left-color: var(--accent-blue); }
-
-  .exercise-item:hover {
-    transform: translateY(-1px);
-    background-color: #162032;
-  }
-
-  /* Grayed Out / Completed State */
-  .exercise-item.completed {
-    opacity: 0.45;
-    filter: grayscale(85%);
-    background-color: #0b1120;
-    border-left-color: #475569 !important;
-  }
-
-  .exercise-item.completed .exercise-title {
+  
+  .exercise-card.completed .exercise-title {
     text-decoration: line-through;
     color: var(--text-secondary);
   }
 
-  .exercise-item.completed .sets-reps {
-    color: var(--text-secondary);
-  }
+  .exercise-card.push-border { border-left: 4px solid var(--accent-red); }
+  .exercise-card.pull-border { border-left: 4px solid var(--accent-green); }
+  .exercise-card.legs-border { border-left: 4px solid var(--accent-blue); }
 
-  .exercise-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin-bottom: 6px;
+  /* Custom Scrollbar for Mobile Tab bar */
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
   }
-
-  .exercise-title-group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .check-icon {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    border: 2px solid #475569;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    color: transparent;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-  }
-
-  .exercise-item.completed .check-icon {
-    background-color: #475569;
-    border-color: #475569;
-    color: #ffffff;
-  }
-
-  .sets-reps {
-    font-size: 0.85rem;
-    color: #38bdf8;
-    white-space: nowrap;
-    font-weight: 600;
-  }
-
-  .exercise-meta {
-    display: flex;
-    gap: 16px;
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-    margin-bottom: 6px;
-    padding-left: 26px;
-  }
-
-  .form-note {
-    font-size: 0.78rem;
-    color: #cbd5e1;
-    margin-top: 4px;
-    line-height: 1.35;
-    padding-left: 26px;
-  }
-
-  .schedule-box {
-    background-color: var(--card-bg);
-    border-radius: 14px;
-    padding: 16px;
-    border: 1px solid var(--border-color);
-  }
-
-  .schedule-box h3 {
-    margin: 0 0 12px 0;
-    font-size: 1.05rem;
-  }
-
-  .schedule-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-    gap: 8px;
-    font-size: 0.85rem;
-  }
-
-  .sched-day {
-    background-color: #0f172a;
-    padding: 10px;
-    border-radius: 8px;
-    text-align: center;
-    border: 1px solid var(--border-color);
-  }
-
-  .sched-day span {
-    color: var(--text-secondary);
-    display: block;
-    font-size: 0.72rem;
-    margin-bottom: 2px;
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 </style>
 </head>
-<body>
+<body class="min-h-screen pb-24">
 
-<div class="header">
-  <h1>3-Day PPL Tracker</h1>
-  <p>Interactive Gym Progress Dashboard</p>
-</div>
-
-<!-- Day Selector Filter Buttons -->
-<div class="filter-bar">
-  <button class="filter-btn active" data-filter="all">All Days</button>
-  <button class="filter-btn" data-filter="push">🔴 Push</button>
-  <button class="filter-btn" data-filter="pull">🟢 Pull</button>
-  <button class="filter-btn" data-filter="legs">🔵 Legs</button>
-</div>
-
-<div class="action-bar">
-  <span class="progress-text" id="progressCounter">0 / 16 Exercises Completed</span>
-  <button class="reset-btn" id="resetBtn">Clear Checks</button>
-</div>
-
-<!-- DAY 1: PUSH -->
-<div class="day-card push" data-day="push">
-  <div class="day-title">
-    <span>🔴 Day 1: Push</span>
-    <span class="time-tag">~53–60 min</span>
+<!-- Header & Auth Panel -->
+<header class="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-30 shadow-md">
+  <div class="max-w-3xl mx-auto flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+        <span>💪</span> PPL Gym Tracker
+      </h1>
+      <p class="text-xs text-slate-400" id="userStatusText">Connecting...</p>
+    </div>
+    <div id="authActions">
+      <button id="authModalBtn" onclick="openAuthModal()" class="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-1.5 px-3 rounded-lg transition">
+        Account / Login
+      </button>
+    </div>
   </div>
-  <div class="day-subtitle">Chest, Shoulders & Triceps</div>
+</header>
 
-  <div class="exercise-item" data-id="push-1">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">1. Barbell Bench Press</span>
+<!-- Main Container -->
+<main class="max-w-3xl mx-auto px-4 pt-4">
+
+  <!-- Day Selection Navigation Tabs -->
+  <div class="flex gap-2 overflow-x-auto hide-scrollbar mb-4 pb-1">
+    <button onclick="switchTab('legs')" id="tab-legs" class="tab-btn flex-1 min-w-[90px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-sm border border-slate-700 hover:border-blue-500 transition text-center">
+      🔵 Legs
+    </button>
+    <button onclick="switchTab('push')" id="tab-push" class="tab-btn flex-1 min-w-[90px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-sm border border-slate-700 hover:border-red-500 transition text-center">
+      🔴 Push
+    </button>
+    <button onclick="switchTab('pull')" id="tab-pull" class="tab-btn flex-1 min-w-[90px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-sm border border-slate-700 hover:border-green-500 transition text-center">
+      🟢 Pull
+    </button>
+    <button onclick="switchTab('all')" id="tab-all" class="tab-btn flex-1 min-w-[90px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-sm border border-slate-700 hover:border-slate-500 transition text-center">
+      📋 All
+    </button>
+    <button onclick="switchTab('history')" id="tab-history" class="tab-btn flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-sm border border-slate-700 hover:border-amber-500 transition text-center">
+      📜 History
+    </button>
+  </div>
+
+  <!-- Rest Timer Widget Bar -->
+  <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-3 mb-5 flex justify-between items-center shadow-inner">
+    <div class="flex items-center gap-2">
+      <span class="text-lg">⏱️</span>
+      <div>
+        <div class="text-xs text-slate-400 font-medium">Rest Timer</div>
+        <div class="text-sm font-bold font-mono text-blue-400" id="timerDisplay">00:00</div>
       </div>
-      <span class="sets-reps">3 sets × 6–8</span>
     </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 3 min</span>
-      <span>🏋️ Heavy Compound</span>
+    <div class="flex gap-1.5">
+      <button onclick="startTimer(60)" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-600 font-medium">1m</button>
+      <button onclick="startTimer(120)" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-600 font-medium">2m</button>
+      <button onclick="startTimer(180)" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-600 font-medium">3m</button>
+      <button onclick="stopTimer()" class="text-xs bg-red-900/50 hover:bg-red-800/60 text-red-300 px-2 py-1.5 rounded-lg border border-red-700 font-medium">Stop</button>
     </div>
-    <div class="form-note">Touch mid-chest, drive feet down into the floor.</div>
   </div>
 
-  <div class="exercise-item" data-id="push-2">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">2. Standing Overhead Press</span>
+  <!-- WORKOUT CONTENT PANELS -->
+  <div id="workoutPanels">
+
+    <!-- LEGS DAY -->
+    <div id="panel-legs" class="workout-panel space-y-4">
+      <div class="flex justify-between items-end border-b border-slate-800 pb-2">
+        <div>
+          <h2 class="text-lg font-bold text-blue-400">🔵 Day 1: Legs / Lower Body</h2>
+          <p class="text-xs text-slate-400">Quads, Hamstrings, Glutes & Adductors</p>
+        </div>
+        <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700">~45–50 min</span>
       </div>
-      <span class="sets-reps">3 sets × 6–8</span>
-    </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 3 min</span>
-      <span>🏋️ Heavy Compound</span>
-    </div>
-    <div class="form-note">Keep glutes squeezed tight to lock core and protect lumbar.</div>
-  </div>
 
-  <div class="exercise-item" data-id="push-3">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">3. Incline Dumbbell Press</span>
+      <div id="legs-exercises" class="space-y-3"></div>
+    </div>
+
+    <!-- PUSH DAY -->
+    <div id="panel-push" class="workout-panel space-y-4 hidden">
+      <div class="flex justify-between items-end border-b border-slate-800 pb-2">
+        <div>
+          <h2 class="text-lg font-bold text-red-400">🔴 Day 2: Push</h2>
+          <p class="text-xs text-slate-400">Chest, Front/Side Delts & Triceps</p>
+        </div>
+        <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700">~53–60 min</span>
       </div>
-      <span class="sets-reps">3 sets × 8–10</span>
-    </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 2.5 min</span>
-      <span>🏋️ Mod. Compound</span>
-    </div>
-    <div class="form-note">Set bench to 30° angle to minimize front delt takeover.</div>
-  </div>
 
-  <div class="exercise-item" data-id="push-4">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">4. Cable / DB Chest Flys</span>
+      <div id="push-exercises" class="space-y-3"></div>
+    </div>
+
+    <!-- PULL DAY -->
+    <div id="panel-pull" class="workout-panel space-y-4 hidden">
+      <div class="flex justify-between items-end border-b border-slate-800 pb-2">
+        <div>
+          <h2 class="text-lg font-bold text-green-400">🟢 Day 3: Pull</h2>
+          <p class="text-xs text-slate-400">Lats, Mid-Back, Biceps & Rear Delts</p>
+        </div>
+        <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700">~43–50 min</span>
       </div>
-      <span class="sets-reps">3 sets × 10–12</span>
-    </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 2 min</span>
-      <span>⚡ Isolation</span>
-    </div>
-    <div class="form-note">Deep stretch at bottom; squeeze peak contraction at top.</div>
-  </div>
 
-  <div class="exercise-item" data-id="push-5">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">5. Lateral Raises</span>
+      <div id="pull-exercises" class="space-y-3"></div>
+    </div>
+
+    <!-- HISTORY / LOGS TAB -->
+    <div id="panel-history" class="workout-panel space-y-4 hidden">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+        <div>
+          <h2 class="text-lg font-bold text-amber-400">📜 Saved Workout History</h2>
+          <p class="text-xs text-slate-400">Previous logged gym sessions</p>
+        </div>
+        <button onclick="fetchHistoryLogs()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700">🔄 Refresh</button>
       </div>
-      <span class="sets-reps">3 sets × 12–15</span>
-    </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 2 min</span>
-      <span>⚡ Isolation</span>
-    </div>
-    <div class="form-note">Lean forward slightly, lead with elbows, control negative.</div>
-  </div>
 
-  <div class="exercise-item" data-id="push-6">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">6. Tricep Rope Pushdowns</span>
+      <div id="historyLogsContainer" class="space-y-3">
+        <p class="text-sm text-slate-500 text-center py-6">Loading history...</p>
       </div>
-      <span class="sets-reps">3 sets × 10–12</span>
     </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 2 min</span>
-      <span>⚡ Isolation</span>
-    </div>
-    <div class="form-note">Keep upper arms pinned firmly to sides throughout set.</div>
-  </div>
-</div>
 
-<!-- DAY 2: PULL -->
-<div class="day-card pull" data-day="pull">
-  <div class="day-title">
-    <span>🟢 Day 2: Pull</span>
-    <span class="time-tag">~43–50 min</span>
   </div>
-  <div class="day-subtitle">Back, Biceps & Rear Delts</div>
+</main>
 
-  <div class="exercise-item" data-id="pull-1">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">1. Lat Pulldowns</span>
-      </div>
-      <span class="sets-reps">3 sets × 8–10</span>
+<!-- Floating Save Workout Bar -->
+<div id="saveBar" class="fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 p-3 z-20 backdrop-blur-md">
+  <div class="max-w-3xl mx-auto flex justify-between items-center gap-3">
+    <div class="text-xs text-slate-400">
+      <span font-bold text-white id="activeTabName">Legs</span> Workout: 
+      <span id="completedCount" class="font-bold text-blue-400">0/5</span> Exercises Done
     </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 3 min</span>
-      <span>🏋️ Heavy Compound</span>
-    </div>
-    <div class="form-note">Pull to upper chest with slight backward lean for lats.</div>
-  </div>
-
-  <div class="exercise-item" data-id="pull-2">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">2. Seated Cable Rows</span>
-      </div>
-      <span class="sets-reps">3 sets × 8–10</span>
-    </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 2.5 min</span>
-      <span>🏋️ Mod. Compound</span>
-    </div>
-    <div class="form-note">Mid-back focus. Squeeze shoulder blades fully at peak.</div>
-  </div>
-
-  <div class="exercise-item" data-id="pull-3">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">3. Face Pulls</span>
-      </div>
-      <span class="sets-reps">3 sets × 12–15</span>
-    </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 2 min</span>
-      <span>⚡ Isolation</span>
-    </div>
-    <div class="form-note">Rear delts & rotator cuff. Pull rope toward eyes/forehead.</div>
-  </div>
-
-  <div class="exercise-item" data-id="pull-4">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">4. Bicep Curls (DB or BB)</span>
-      </div>
-      <span class="sets-reps">3 sets × 10–12</span>
-    </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 2 min</span>
-      <span>⚡ Isolation</span>
-    </div>
-    <div class="form-note">Strict posture—avoid torso swinging to keep tension on biceps.</div>
-  </div>
-
-  <div class="exercise-item" data-id="pull-5">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">5. Farmer's Walk</span>
-      </div>
-      <span class="sets-reps">3 sets × 45–60s</span>
-    </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 2 min</span>
-      <span>⚡ Core & Grip</span>
-    </div>
-    <div class="form-note">Walk tall with heavy dumbbells, shoulders pinned back.</div>
+    <button onclick="saveCurrentWorkoutLog()" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-sm py-2.5 px-5 rounded-xl shadow-lg transition flex items-center gap-1.5">
+      <span>💾</span> Save Workout
+    </button>
   </div>
 </div>
 
-<!-- DAY 3: LEGS -->
-<div class="day-card legs" data-day="legs">
-  <div class="day-title">
-    <span>🔵 Day 3: Legs</span>
-    <span class="time-tag">~43–50 min</span>
-  </div>
-  <div class="day-subtitle">Quads, Hamstrings, Glutes & Calves</div>
+<!-- Authentication Modal -->
+<div id="authModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
+    <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">✕</button>
+    <h3 class="text-lg font-bold text-white mb-1">User Login / Account</h3>
+    <p class="text-xs text-slate-400 mb-4">Sync your workout logs safely across all devices.</p>
 
-  <div class="exercise-item" data-id="legs-1">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">1. Hack Squat / Barbell Squat</span>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs text-slate-300 mb-1">Email Address</label>
+        <input type="email" id="authEmail" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500" placeholder="you@example.com">
       </div>
-      <span class="sets-reps">3 sets × 6–8</span>
-    </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 3 min</span>
-      <span>🏋️ Heavy Compound</span>
-    </div>
-    <div class="form-note">Primary quad driver. Lower controlled until thighs hit parallel.</div>
-  </div>
+      <div>
+        <label class="block text-xs text-slate-300 mb-1">Password</label>
+        <input type="password" id="authPassword" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500" placeholder="••••••••">
+      </div>
 
-  <div class="exercise-item" data-id="legs-2">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">2. Romanian Deadlifts (RDLs)</span>
+      <div class="flex gap-2 pt-2">
+        <button onclick="handleLogin()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 rounded-lg text-sm">Login</button>
+        <button onclick="handleSignup()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 rounded-lg text-sm">Sign Up</button>
       </div>
-      <span class="sets-reps">3 sets × 8–10</span>
-    </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 3 min</span>
-      <span>🏋️ Heavy Compound</span>
-    </div>
-    <div class="form-note">Primary hamstring hinge. Hinge at hips, push glutes far back.</div>
-  </div>
 
-  <div class="exercise-item" data-id="legs-3">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">3. Leg Extensions</span>
+      <div class="relative flex py-2 items-center">
+        <div class="flex-grow border-t border-slate-700"></div>
+        <span class="flex-shrink mx-2 text-xs text-slate-500">OR</span>
+        <div class="flex-grow border-t border-slate-700"></div>
       </div>
-      <span class="sets-reps">3 sets × 10–12</span>
-    </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 2 min</span>
-      <span>⚡ Isolation</span>
-    </div>
-    <div class="form-note">Pause 1 second at top extension for peak quad contraction.</div>
-  </div>
 
-  <div class="exercise-item" data-id="legs-4">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">4. Seated or Lying Leg Curls</span>
-      </div>
-      <span class="sets-reps">3 sets × 10–12</span>
-    </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 2 min</span>
-      <span>⚡ Isolation</span>
-    </div>
-    <div class="form-note">Knee flexion focus. Flex toes toward shins to keep tension.</div>
-  </div>
+      <button onclick="handleGuestLogin()" class="w-full bg-slate-900 hover:bg-slate-950 text-slate-300 font-medium py-2 rounded-lg text-xs border border-slate-700">
+        Continue as Guest (Quick Login)
+      </button>
 
-  <div class="exercise-item" data-id="legs-5">
-    <div class="exercise-header">
-      <div class="exercise-title-group">
-        <div class="check-icon">✓</div>
-        <span class="exercise-title">5. Hip Adductor / Abductor</span>
+      <div id="logoutSection" class="hidden pt-2 border-t border-slate-700">
+        <button onclick="handleLogout()" class="w-full bg-red-900/50 hover:bg-red-800 text-red-300 font-semibold py-2 rounded-lg text-xs border border-red-700">
+          Sign Out of Account
+        </button>
       </div>
-      <span class="sets-reps">3 sets × 12–15</span>
     </div>
-    <div class="exercise-meta">
-      <span>⏱️ Rest: 2 min</span>
-      <span>⚡ Isolation</span>
-    </div>
-    <div class="form-note">Inner thigh & outer glute machine superset.</div>
   </div>
 </div>
 
-<!-- SCHEDULE REFERENCE -->
-<div class="schedule-box">
-  <h3>📅 Recommended Rotation</h3>
-  <div class="schedule-grid">
-    <div class="sched-day"><span>Day 1</span>Legs</div>
-    <div class="sched-day"><span>Day 2</span>Push</div>
-    <div class="sched-day"><span>Day 3</span>Pull</div>
-    <div class="sched-day"><span>Day 4</span>Rest</div>
-  </div>
+<!-- Toast Notification -->
+<div id="toast" class="fixed top-20 right-4 bg-emerald-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-2xl transition transform translate-y-[-20px] opacity-0 pointer-events-none z-50">
+  Workout saved successfully!
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const filterBtns = document.querySelectorAll('.filter-btn');
-    const dayCards = document.querySelectorAll('.day-card');
-    const exerciseItems = document.querySelectorAll('.exercise-item');
-    const progressCounter = document.getElementById('progressCounter');
-    const resetBtn = document.getElementById('resetBtn');
+  // Exercises Dataset Definition
+  const WORKOUT_DATA = {
+    legs: [
+      { id: 'l1', name: '1. Hack Squat / Barbell Squat', target: 'Quads & Glutes', reps: '3 × 6–8', rest: '3 min', defaultWeight: 185 },
+      { id: 'l2', name: '2. Romanian Deadlifts (RDLs)', target: 'Hamstrings & Glutes', reps: '3 × 8–10', rest: '3 min', defaultWeight: 155 },
+      { id: 'l3', name: '3. Leg Extensions', target: 'Isolated Quads', reps: '3 × 10–12', rest: '2 min', defaultWeight: 110 },
+      { id: 'l4', name: '4. Seated or Lying Leg Curls', target: 'Isolated Hamstrings', reps: '3 × 10–12', rest: '2 min', defaultWeight: 90 },
+      { id: 'l5', name: '5. Hip Adductors / Abductors', target: 'Inner/Outer Thighs', reps: '3 × 12–15', rest: '2 min', defaultWeight: 120 }
+    ],
+    push: [
+      { id: 'p1', name: '1. Flat Barbell Bench Press', target: 'Chest & Triceps', reps: '3 × 6–8', rest: '3 min', defaultWeight: 155 },
+      { id: 'p2', name: '2. Standing Overhead Press (OHP)', target: 'Front Delts & Core', reps: '3 × 6–8', rest: '3 min', defaultWeight: 95 },
+      { id: 'p3', name: '3. Incline Dumbbell Press', target: 'Upper Chest', reps: '3 × 8–10', rest: '2.5 min', defaultWeight: 55 },
+      { id: 'p4', name: '4. Cable or DB Chest Flys', target: 'Isolated Chest Stretch', reps: '3 × 10–12', rest: '2 min', defaultWeight: 35 },
+      { id: 'p5', name: '5. Lateral Raises', target: 'Side Delts', reps: '3 × 12–15', rest: '2 min', defaultWeight: 20 },
+      { id: 'p6', name: '6. Tricep Rope Pushdowns', target: 'Tricep Extension', reps: '3 × 10–12', rest: '2 min', defaultWeight: 45 }
+    ],
+    pull: [
+      { id: 'u1', name: '1. Lat Pulldowns', target: 'Lats & Upper Back', reps: '3 × 8–10', rest: '3 min', defaultWeight: 120 },
+      { id: 'u2', name: '2. Seated Cable Rows', target: 'Mid-Back & Rhomboids', reps: '3 × 8–10', rest: '2.5 min', defaultWeight: 120 },
+      { id: 'u3', name: '3. Face Pulls', target: 'Rear Delts & Rotator Cuff', reps: '3 × 12–15', rest: '2 min', defaultWeight: 40 },
+      { id: 'u4', name: '4. Dumbbell or Barbell Bicep Curls', target: 'Biceps', reps: '3 × 10–12', rest: '2 min', defaultWeight: 30 },
+      { id: 'u5', name: '5. Farmer’s Walk', target: 'Traps, Grip & Core', reps: '3 × 45–60s', rest: '2 min', defaultWeight: 50 }
+    ]
+  };
 
-    // Load saved completion state from LocalStorage
-    let completedExercises = JSON.parse(localStorage.getItem('ppl_completed_exercises') || '[]');
+  let activeTab = 'legs';
+  let currentUser = null;
+  let timerInterval = null;
+  let timerSecondsLeft = 0;
 
-    function updateProgressUI() {
-      exerciseItems.forEach(item => {
-        const id = item.getAttribute('data-id');
-        if (completedExercises.includes(id)) {
-          item.classList.add('completed');
-        } else {
-          item.classList.remove('completed');
-        }
-      });
+  window.onload = function() {
+    renderExerciseCards();
+    switchTab('legs');
 
-      const total = exerciseItems.length;
-      const count = completedExercises.length;
-      progressCounter.textContent = `${count} / ${total} Exercises Completed`;
+    // Initialize Auth state monitor
+    const { onAuthStateChanged, signInAnonymously, signInWithCustomToken } = window.firebaseModule;
+    const auth = window.firebaseAuth;
+
+    // RULE 3: Authenticate first
+    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+      signInWithCustomToken(auth, __initial_auth_token).catch(() => signInAnonymously(auth));
+    } else {
+      signInAnonymously(auth).catch(err => console.error("Anon auth failed:", err));
     }
 
-    // Toggle exercise completion state on card click
-    exerciseItems.forEach(item => {
-      item.addEventListener('click', () => {
-        const id = item.getAttribute('data-id');
-        if (completedExercises.includes(id)) {
-          completedExercises = completedExercises.filter(exId => exId !== id);
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      const statusText = document.getElementById('userStatusText');
+      const logoutSec = document.getElementById('logoutSection');
+
+      if (user) {
+        if (user.isAnonymous) {
+          statusText.textContent = `Logged in as Guest (${user.uid.slice(0, 6)}...)`;
+          logoutSec.classList.add('hidden');
         } else {
-          completedExercises.push(id);
+          statusText.textContent = `Logged in: ${user.email}`;
+          logoutSec.classList.remove('hidden');
         }
-        localStorage.setItem('ppl_completed_exercises', JSON.stringify(completedExercises));
-        updateProgressUI();
-      });
-    });
-
-    // Day filter switching
-    filterBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        filterBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-
-        const filter = btn.getAttribute('data-filter');
-
-        dayCards.forEach(card => {
-          if (filter === 'all' || card.getAttribute('data-day') === filter) {
-            card.classList.remove('hidden');
-          } else {
-            card.classList.add('hidden');
-          }
-        });
-      });
-    });
-
-    // Reset progress button
-    resetBtn.addEventListener('click', () => {
-      if (confirm('Clear all checkmarks and reset exercise progress?')) {
-        completedExercises = [];
-        localStorage.removeItem('ppl_completed_exercises');
-        updateProgressUI();
+        fetchHistoryLogs();
+      } else {
+        statusText.textContent = 'Not connected';
+        logoutSec.classList.add('hidden');
       }
     });
+  };
 
-    // Initialize UI on load
-    updateProgressUI();
-  });
+  function renderExerciseCards() {
+    ['legs', 'push', 'pull'].forEach(day => {
+      const container = document.getElementById(`${day}-exercises`);
+      container.innerHTML = '';
+
+      WORKOUT_DATA[day].forEach(ex => {
+        const borderClass = day === 'legs' ? 'legs-border' : (day === 'push' ? 'push-border' : 'pull-border');
+        const card = document.createElement('div');
+        card.className = `exercise-card bg-slate-800 border border-slate-700 rounded-xl p-3.5 shadow-sm transition ${borderClass}`;
+        card.id = `card-${ex.id}`;
+
+        card.innerHTML = `
+          <div class="flex justify-between items-start gap-2 mb-2">
+            <div>
+              <h3 class="exercise-title font-bold text-sm text-slate-100">${ex.name}</h3>
+              <p class="text-xs text-slate-400">Target: ${ex.target}</p>
+            </div>
+            <label class="flex items-center gap-1.5 cursor-pointer bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-700">
+              <input type="checkbox" onchange="toggleExerciseDone('${ex.id}')" id="check-${ex.id}" class="w-4 h-4 accent-blue-500 rounded">
+              <span class="text-xs font-semibold text-slate-300">Done</span>
+            </label>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400 mb-3 bg-slate-900/40 p-2 rounded-lg">
+            <span>🎯 ${ex.reps}</span>
+            <span>⏱️ ${ex.rest} rest</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Weight (lbs)</label>
+              <input type="number" id="weight-${ex.id}" value="${ex.defaultWeight}" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white font-semibold focus:border-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Sets Completed</label>
+              <input type="number" id="sets-${ex.id}" value="3" min="0" max="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white font-semibold focus:border-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Target Reps</label>
+              <input type="text" id="reps-${ex.id}" value="${ex.reps.split('×')[1] || '8-10'}" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white font-semibold focus:border-blue-500 focus:outline-none">
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    });
+  }
+
+  function switchTab(tab) {
+    activeTab = tab;
+    
+    // Update tab buttons style
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.remove('bg-blue-600', 'bg-red-600', 'bg-green-600', 'bg-slate-700', 'text-white');
+      btn.classList.add('bg-slate-800', 'text-slate-300');
+    });
+
+    const activeBtn = document.getElementById(`tab-${tab}`);
+    if (activeBtn) {
+      activeBtn.classList.remove('bg-slate-800', 'text-slate-300');
+      activeBtn.classList.add('bg-slate-700', 'text-white');
+    }
+
+    // Hide all panels
+    document.querySelectorAll('.workout-panel').forEach(p => p.classList.add('hidden'));
+
+    // Show panel or all
+    const saveBar = document.getElementById('saveBar');
+    const activeTabName = document.getElementById('activeTabName');
+
+    if (tab === 'all') {
+      document.getElementById('panel-legs').classList.remove('hidden');
+      document.getElementById('panel-push').classList.remove('hidden');
+      document.getElementById('panel-pull').classList.remove('hidden');
+      saveBar.classList.remove('hidden');
+      activeTabName.textContent = 'Full PPL';
+    } else if (tab === 'history') {
+      document.getElementById('panel-history').classList.remove('hidden');
+      saveBar.classList.add('hidden');
+      fetchHistoryLogs();
+    } else {
+      document.getElementById(`panel-${tab}`).classList.remove('hidden');
+      saveBar.classList.remove('hidden');
+      activeTabName.textContent = tab.toUpperCase();
+    }
+
+    updateCompletedCount();
+  }
+
+  function toggleExerciseDone(id) {
+    const card = document.getElementById(`card-${id}`);
+    const check = document.getElementById(`check-${id}`);
+    if (check.checked) {
+      card.classList.add('completed');
+    } else {
+      card.classList.remove('completed');
+    }
+    updateCompletedCount();
+  }
+
+  function updateCompletedCount() {
+    let currentExercises = [];
+    if (activeTab === 'all') {
+      currentExercises = [...WORKOUT_DATA.legs, ...WORKOUT_DATA.push, ...WORKOUT_DATA.pull];
+    } else if (activeTab === 'legs' || activeTab === 'push' || activeTab === 'pull') {
+      currentExercises = WORKOUT_DATA[activeTab];
+    }
+
+    let completed = 0;
+    currentExercises.forEach(ex => {
+      const check = document.getElementById(`check-${ex.id}`);
+      if (check && check.checked) completed++;
+    });
+
+    document.getElementById('completedCount').textContent = `${completed}/${currentExercises.length}`;
+  }
+
+  function startTimer(seconds) {
+    stopTimer();
+    timerSecondsLeft = seconds;
+    updateTimerDisplay();
+
+    timerInterval = setInterval(() => {
+      timerSecondsLeft--;
+      updateTimerDisplay();
+      if (timerSecondsLeft <= 0) {
+        stopTimer();
+        showToast('⏰ Rest time is up! Start your next set!');
+      }
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerSecondsLeft = 0;
+    updateTimerDisplay();
+  }
+
+  function updateTimerDisplay() {
+    const m = Math.floor(timerSecondsLeft / 60).toString().padStart(2, '0');
+    const s = (timerSecondsLeft % 60).toString().padStart(2, '0');
+    document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+  }
+
+  async function saveCurrentWorkoutLog() {
+    if (!currentUser) {
+      showToast('⚠️ Please login to save workout logs!');
+      openAuthModal();
+      return;
+    }
+
+    const { doc, setDoc, collection, addDoc } = window.firebaseModule;
+    const db = window.firebaseDb;
+    const appId = window.appId;
+
+    let targetList = [];
+    if (activeTab === 'all') {
+      targetList = [...WORKOUT_DATA.legs, ...WORKOUT_DATA.push, ...WORKOUT_DATA.pull];
+    } else if (activeTab === 'history') {
+      return;
+    } else {
+      targetList = WORKOUT_DATA[activeTab];
+    }
+
+    const logData = {
+      date: new Date().toISOString(),
+      displayDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      workoutType: activeTab.toUpperCase(),
+      userId: currentUser.uid,
+      exercises: []
+    };
+
+    targetList.forEach(ex => {
+      const check = document.getElementById(`check-${ex.id}`);
+      const weight = document.getElementById(`weight-${ex.id}`).value;
+      const sets = document.getElementById(`sets-${ex.id}`).value;
+      const reps = document.getElementById(`reps-${ex.id}`).value;
+
+      logData.exercises.push({
+        id: ex.id,
+        name: ex.name,
+        completed: check ? check.checked : false,
+        weight: Number(weight) || 0,
+        sets: Number(sets) || 0,
+        reps: reps || ''
+      });
+    });
+
+    try {
+      // RULE 1: Strict collection path /artifacts/{appId}/users/{userId}/{collectionName}
+      const userLogsCollection = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'workout_logs');
+      await addDoc(userLogsCollection, logData);
+      showToast('✅ Workout Log Saved to Cloud!');
+    } catch (err) {
+      console.error("Error saving log:", err);
+      showToast('❌ Error saving log. Try again.');
+    }
+  }
+
+  async function fetchHistoryLogs() {
+    const container = document.getElementById('historyLogsContainer');
+    if (!currentUser) {
+      container.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Sign in to view saved logs.</p>';
+      return;
+    }
+
+    const { collection, getDocs } = window.firebaseModule;
+    const db = window.firebaseDb;
+    const appId = window.appId;
+
+    try {
+      // RULE 1 & 2: Simple collection query without complex orderBy/where
+      const userLogsCollection = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'workout_logs');
+      const snapshot = await getDocs(userLogsCollection);
+
+      if (snapshot.empty) {
+        container.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">No workout logs saved yet. Finish a workout and save!</p>';
+        return;
+      }
+
+      let logs = [];
+      snapshot.forEach(doc => logs.push({ id: doc.id, ...doc.data() }));
+
+      // Sort in memory by date descending
+      logs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      container.innerHTML = '';
+      logs.forEach(log => {
+        const item = document.createElement('div');
+        item.className = 'bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2';
+
+        const completedEx = log.exercises ? log.exercises.filter(e => e.completed) : [];
+
+        let exercisesHtml = '';
+        if (log.exercises) {
+          exercisesHtml = log.exercises.map(e => `
+            <div class="flex justify-between items-center text-xs py-1 border-b border-slate-700/50 ${e.completed ? 'text-slate-200' : 'text-slate-500 opacity-60'}">
+              <span>${e.completed ? '✓' : '✗'} ${e.name}</span>
+              <span class="font-mono font-semibold">${e.weight} lbs × ${e.sets}s</span>
+            </div>
+          `).join('');
+        }
+
+        item.innerHTML = `
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-bold text-blue-400 text-sm">${log.workoutType || 'PPL'} Session</span>
+            <span class="text-slate-400">${log.displayDate || ''}</span>
+          </div>
+          <div class="text-xs text-slate-400 mb-2">${completedEx.length} / ${log.exercises ? log.exercises.length : 0} Exercises Completed</div>
+          <div class="space-y-0.5">${exercisesHtml}</div>
+        `;
+        container.appendChild(item);
+      });
+
+    } catch (err) {
+      console.error("Error fetching history:", err);
+      container.innerHTML = '<p class="text-xs text-red-400 text-center py-4">Failed to load logs.</p>';
+    }
+  }
+
+  function openAuthModal() {
+    document.getElementById('authModal').classList.remove('hidden');
+  }
+
+  function closeAuthModal() {
+    document.getElementById('authModal').classList.add('hidden');
+  }
+
+  async function handleLogin() {
+    const email = document.getElementById('authEmail').value;
+    const pass = document.getElementById('authPassword').value;
+    const { signInWithEmailAndPassword } = window.firebaseModule;
+
+    try {
+      await signInWithEmailAndPassword(window.firebaseAuth, email, pass);
+      closeAuthModal();
+      showToast('Logged in successfully!');
+    } catch (err) {
+      alert('Login error: ' + err.message);
+    }
+  }
+
+  async function handleSignup() {
+    const email = document.getElementById('authEmail').value;
+    const pass = document.getElementById('authPassword').value;
+    const { createUserWithEmailAndPassword } = window.firebaseModule;
+
+    try {
+      await createUserWithEmailAndPassword(window.firebaseAuth, email, pass);
+      closeAuthModal();
+      showToast('Account created!');
+    } catch (err) {
+      alert('Signup error: ' + err.message);
+    }
+  }
+
+  async function handleGuestLogin() {
+    const { signInAnonymously } = window.firebaseModule;
+    try {
+      await signInAnonymously(window.firebaseAuth);
+      closeAuthModal();
+      showToast('Logged in as Guest');
+    } catch (err) {
+      alert('Guest login error: ' + err.message);
+    }
+  }
+
+  async function handleLogout() {
+    const { signOut } = window.firebaseModule;
+    try {
+      await signOut(window.firebaseAuth);
+      closeAuthModal();
+      showToast('Signed out');
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.remove('opacity-0', 'translate-y-[-20px]');
+    toast.classList.add('opacity-100', 'translate-y-0');
+
+    setTimeout(() => {
+      toast.classList.remove('opacity-100', 'translate-y-0');
+      toast.classList.add('opacity-0', 'translate-y-[-20px]');
+    }, 3000);
+  }
 </script>
 </body>
 </html>
