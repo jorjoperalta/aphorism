@@ -3,67 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PPL Gym Workout Tracker</title>
+<title>3-Day PPL Gym Workout Tracker</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-  import { 
-    getAuth, 
-    signInAnonymously, 
-    signInWithCustomToken,
-    signInWithEmailAndPassword, 
-    createUserWithEmailAndPassword,
-    signOut, 
-    onAuthStateChanged 
-  } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-  import { 
-    getFirestore, 
-    doc, 
-    setDoc, 
-    getDoc, 
-    collection, 
-    getDocs, 
-    addDoc, 
-    query, 
-    onSnapshot 
-  } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-  const appId = typeof __app_id !== 'undefined' ? __app_id : 'ppl-workout-tracker';
-  const firebaseConfig = typeof __firebase_config !== 'undefined' 
-    ? JSON.parse(__firebase_config) 
-    : {
-        apiKey: "AIzaSyDemoConfigKeyOnlyForFallback123456",
-        authDomain: "demo-app.firebaseapp.com",
-        projectId: "demo-app",
-        storageBucket: "demo-app.appspot.com",
-        messagingSenderId: "1234567890",
-        appId: "1:1234567890:web:abcdef123456"
-      };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-
-  window.firebaseAuth = auth;
-  window.firebaseDb = db;
-  window.appId = appId;
-  window.firebaseModule = {
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    signInAnonymously,
-    signInWithCustomToken,
-    signOut,
-    doc,
-    setDoc,
-    getDoc,
-    collection,
-    getDocs,
-    addDoc,
-    query,
-    onSnapshot
-  };
-</script>
-
 <style>
   :root {
     --bg-color: #0f172a;
@@ -84,13 +25,13 @@
     -webkit-user-select: none;
   }
 
-  /* Exercise Card Check State */
+  /* Exercise Card Completed State */
   .exercise-card.completed {
-    opacity: 0.55;
+    opacity: 0.5;
     background-color: #0d1527;
     border-color: #334155;
   }
-  
+
   .exercise-card.completed .exercise-title {
     text-decoration: line-through;
     color: var(--text-secondary);
@@ -100,63 +41,55 @@
   .exercise-card.pull-border { border-left: 4px solid var(--accent-green); }
   .exercise-card.legs-border { border-left: 4px solid var(--accent-blue); }
 
-  /* Custom Scrollbar for Mobile Tab bar */
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+  /* Custom scrollbar hiding */
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
 </head>
-<body class="min-h-screen pb-24">
+<body class="min-h-screen pb-28">
 
-<!-- Header & Auth Panel -->
 <header class="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-30 shadow-md">
   <div class="max-w-3xl mx-auto flex justify-between items-center">
     <div>
       <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
         <span>💪</span> PPL Gym Tracker
       </h1>
-      <p class="text-xs text-slate-400" id="userStatusText">Connecting...</p>
+      <p class="text-xs text-slate-400">Offline Local Storage Persistent Log</p>
     </div>
-    <div id="authActions">
-      <button id="authModalBtn" onclick="openAuthModal()" class="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold py-1.5 px-3 rounded-lg transition">
-        Account / Login
-      </button>
+    <div class="flex items-center gap-2">
+      <label class="text-xs text-slate-400 hidden sm:inline">User:</label>
+      <input type="text" id="usernameInput" value="Lifter" onchange="saveUsername(this.value)" class="bg-slate-800 border border-slate-700 text-xs text-slate-200 px-2.5 py-1.5 rounded-lg w-24 text-right focus:outline-none focus:border-blue-500">
     </div>
   </div>
 </header>
 
-<!-- Main Container -->
 <main class="max-w-3xl mx-auto px-4 pt-4">
 
-  <!-- Day Selection Navigation Tabs -->
+  <!-- Day Navigation Tabs -->
   <div class="flex gap-2 overflow-x-auto hide-scrollbar mb-4 pb-1">
-    <button onclick="switchTab('legs')" id="tab-legs" class="tab-btn flex-1 min-w-[90px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-sm border border-slate-700 hover:border-blue-500 transition text-center">
+    <button onclick="switchTab('legs')" id="tab-legs" class="tab-btn flex-1 min-w-[85px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-xs sm:text-sm border border-slate-700 hover:border-blue-500 transition text-center">
       🔵 Legs
     </button>
-    <button onclick="switchTab('push')" id="tab-push" class="tab-btn flex-1 min-w-[90px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-sm border border-slate-700 hover:border-red-500 transition text-center">
+    <button onclick="switchTab('push')" id="tab-push" class="tab-btn flex-1 min-w-[85px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-xs sm:text-sm border border-slate-700 hover:border-red-500 transition text-center">
       🔴 Push
     </button>
-    <button onclick="switchTab('pull')" id="tab-pull" class="tab-btn flex-1 min-w-[90px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-sm border border-slate-700 hover:border-green-500 transition text-center">
+    <button onclick="switchTab('pull')" id="tab-pull" class="tab-btn flex-1 min-w-[85px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-xs sm:text-sm border border-slate-700 hover:border-green-500 transition text-center">
       🟢 Pull
     </button>
-    <button onclick="switchTab('all')" id="tab-all" class="tab-btn flex-1 min-w-[90px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-sm border border-slate-700 hover:border-slate-500 transition text-center">
+    <button onclick="switchTab('all')" id="tab-all" class="tab-btn flex-1 min-w-[85px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-xs sm:text-sm border border-slate-700 hover:border-slate-500 transition text-center">
       📋 All
     </button>
-    <button onclick="switchTab('history')" id="tab-history" class="tab-btn flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-sm border border-slate-700 hover:border-amber-500 transition text-center">
+    <button onclick="switchTab('history')" id="tab-history" class="tab-btn flex-1 min-w-[95px] py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-xs sm:text-sm border border-slate-700 hover:border-amber-500 transition text-center">
       📜 History
     </button>
   </div>
 
-  <!-- Rest Timer Widget Bar -->
+  <!-- Rest Timer Bar -->
   <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-3 mb-5 flex justify-between items-center shadow-inner">
-    <div class="flex items-center gap-2">
-      <span class="text-lg">⏱️</span>
+    <div class="flex items-center gap-2.5">
+      <span class="text-xl">⏱️</span>
       <div>
-        <div class="text-xs text-slate-400 font-medium">Rest Timer</div>
+        <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Rest Timer</div>
         <div class="text-sm font-bold font-mono text-blue-400" id="timerDisplay">00:00</div>
       </div>
     </div>
@@ -168,10 +101,9 @@
     </div>
   </div>
 
-  <!-- WORKOUT CONTENT PANELS -->
   <div id="workoutPanels">
 
-    <!-- LEGS DAY -->
+    <!-- LEGS PANEL -->
     <div id="panel-legs" class="workout-panel space-y-4">
       <div class="flex justify-between items-end border-b border-slate-800 pb-2">
         <div>
@@ -180,11 +112,10 @@
         </div>
         <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700">~45–50 min</span>
       </div>
-
       <div id="legs-exercises" class="space-y-3"></div>
     </div>
 
-    <!-- PUSH DAY -->
+    <!-- PUSH PANEL -->
     <div id="panel-push" class="workout-panel space-y-4 hidden">
       <div class="flex justify-between items-end border-b border-slate-800 pb-2">
         <div>
@@ -193,11 +124,10 @@
         </div>
         <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700">~53–60 min</span>
       </div>
-
       <div id="push-exercises" class="space-y-3"></div>
     </div>
 
-    <!-- PULL DAY -->
+    <!-- PULL PANEL -->
     <div id="panel-pull" class="workout-panel space-y-4 hidden">
       <div class="flex justify-between items-end border-b border-slate-800 pb-2">
         <div>
@@ -206,162 +136,101 @@
         </div>
         <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700">~43–50 min</span>
       </div>
-
       <div id="pull-exercises" class="space-y-3"></div>
     </div>
 
-    <!-- HISTORY / LOGS TAB -->
+    <!-- HISTORY PANEL -->
     <div id="panel-history" class="workout-panel space-y-4 hidden">
       <div class="flex justify-between items-center border-b border-slate-800 pb-2">
         <div>
-          <h2 class="text-lg font-bold text-amber-400">📜 Saved Workout History</h2>
-          <p class="text-xs text-slate-400">Previous logged gym sessions</p>
+          <h2 class="text-lg font-bold text-amber-400">📜 Saved Workout Logs</h2>
+          <p class="text-xs text-slate-400">Local workout history</p>
         </div>
-        <button onclick="fetchHistoryLogs()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700">🔄 Refresh</button>
+        <button onclick="clearHistoryLogs()" class="text-xs bg-red-900/40 hover:bg-red-800 text-red-300 px-2.5 py-1 rounded-md border border-red-700/60 transition">
+          🗑️ Clear History
+        </button>
       </div>
-
-      <div id="historyLogsContainer" class="space-y-3">
-        <p class="text-sm text-slate-500 text-center py-6">Loading history...</p>
-      </div>
+      <div id="historyLogsContainer" class="space-y-3"></div>
     </div>
 
   </div>
 </main>
 
-<!-- Floating Save Workout Bar -->
 <div id="saveBar" class="fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 p-3 z-20 backdrop-blur-md">
   <div class="max-w-3xl mx-auto flex justify-between items-center gap-3">
     <div class="text-xs text-slate-400">
-      <span font-bold text-white id="activeTabName">Legs</span> Workout: 
-      <span id="completedCount" class="font-bold text-blue-400">0/5</span> Exercises Done
+      <span class="font-bold text-white" id="activeTabName">LEGS</span> Workout: 
+      <span id="completedCount" class="font-bold text-blue-400">0/5</span> Done
     </div>
-    <button onclick="saveCurrentWorkoutLog()" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-sm py-2.5 px-5 rounded-xl shadow-lg transition flex items-center gap-1.5">
-      <span>💾</span> Save Workout
+    <button onclick="saveCurrentWorkoutLog()" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs sm:text-sm py-2.5 px-5 rounded-xl shadow-lg transition flex items-center gap-1.5">
+      <span>💾</span> Save Session Log
     </button>
   </div>
 </div>
 
-<!-- Authentication Modal -->
-<div id="authModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
-  <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
-    <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">✕</button>
-    <h3 class="text-lg font-bold text-white mb-1">User Login / Account</h3>
-    <p class="text-xs text-slate-400 mb-4">Sync your workout logs safely across all devices.</p>
-
-    <div class="space-y-3">
-      <div>
-        <label class="block text-xs text-slate-300 mb-1">Email Address</label>
-        <input type="email" id="authEmail" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500" placeholder="you@example.com">
-      </div>
-      <div>
-        <label class="block text-xs text-slate-300 mb-1">Password</label>
-        <input type="password" id="authPassword" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500" placeholder="••••••••">
-      </div>
-
-      <div class="flex gap-2 pt-2">
-        <button onclick="handleLogin()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 rounded-lg text-sm">Login</button>
-        <button onclick="handleSignup()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 rounded-lg text-sm">Sign Up</button>
-      </div>
-
-      <div class="relative flex py-2 items-center">
-        <div class="flex-grow border-t border-slate-700"></div>
-        <span class="flex-shrink mx-2 text-xs text-slate-500">OR</span>
-        <div class="flex-grow border-t border-slate-700"></div>
-      </div>
-
-      <button onclick="handleGuestLogin()" class="w-full bg-slate-900 hover:bg-slate-950 text-slate-300 font-medium py-2 rounded-lg text-xs border border-slate-700">
-        Continue as Guest (Quick Login)
-      </button>
-
-      <div id="logoutSection" class="hidden pt-2 border-t border-slate-700">
-        <button onclick="handleLogout()" class="w-full bg-red-900/50 hover:bg-red-800 text-red-300 font-semibold py-2 rounded-lg text-xs border border-red-700">
-          Sign Out of Account
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Toast Notification -->
-<div id="toast" class="fixed top-20 right-4 bg-emerald-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-2xl transition transform translate-y-[-20px] opacity-0 pointer-events-none z-50">
+<div id="toast" class="fixed top-16 right-4 bg-emerald-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-2xl transition transform translate-y-[-20px] opacity-0 pointer-events-none z-50">
   Workout saved successfully!
 </div>
 
 <script>
-  // Exercises Dataset Definition
   const WORKOUT_DATA = {
     legs: [
-      { id: 'l1', name: '1. Hack Squat / Barbell Squat', target: 'Quads & Glutes', reps: '3 × 6–8', rest: '3 min', defaultWeight: 185 },
-      { id: 'l2', name: '2. Romanian Deadlifts (RDLs)', target: 'Hamstrings & Glutes', reps: '3 × 8–10', rest: '3 min', defaultWeight: 155 },
-      { id: 'l3', name: '3. Leg Extensions', target: 'Isolated Quads', reps: '3 × 10–12', rest: '2 min', defaultWeight: 110 },
-      { id: 'l4', name: '4. Seated or Lying Leg Curls', target: 'Isolated Hamstrings', reps: '3 × 10–12', rest: '2 min', defaultWeight: 90 },
-      { id: 'l5', name: '5. Hip Adductors / Abductors', target: 'Inner/Outer Thighs', reps: '3 × 12–15', rest: '2 min', defaultWeight: 120 }
+      { id: 'l1', name: '1. Hack Squat / Barbell Squat', target: 'Quads & Glutes', reps: '3 × 6–8', rest: '3 min', defaultWeight: 185, note: 'Lower under control until thighs hit parallel or lower.' },
+      { id: 'l2', name: '2. Romanian Deadlifts (RDLs)', target: 'Hamstrings & Glutes', reps: '3 × 8–10', rest: '3 min', defaultWeight: 155, note: 'Primary hamstring hinge. Hinge at hips, push glutes back.' },
+      { id: 'l3', name: '3. Leg Extensions', target: 'Isolated Quads', reps: '3 × 10–12', rest: '2 min', defaultWeight: 110, note: 'Pause for 1 second at top extension for peak contraction.' },
+      { id: 'l4', name: '4. Seated or Lying Leg Curls', target: 'Isolated Hamstrings', reps: '3 × 10–12', rest: '2 min', defaultWeight: 90, note: 'Flex toes toward shins to maintain hamstring tension.' },
+      { id: 'l5', name: '5. Hip Adductors / Abductors', target: 'Inner/Outer Thighs', reps: '3 × 12–15', rest: '2 min', defaultWeight: 120, note: 'Inner thigh and outer glute stability machine superset.' }
     ],
     push: [
-      { id: 'p1', name: '1. Flat Barbell Bench Press', target: 'Chest & Triceps', reps: '3 × 6–8', rest: '3 min', defaultWeight: 155 },
-      { id: 'p2', name: '2. Standing Overhead Press (OHP)', target: 'Front Delts & Core', reps: '3 × 6–8', rest: '3 min', defaultWeight: 95 },
-      { id: 'p3', name: '3. Incline Dumbbell Press', target: 'Upper Chest', reps: '3 × 8–10', rest: '2.5 min', defaultWeight: 55 },
-      { id: 'p4', name: '4. Cable or DB Chest Flys', target: 'Isolated Chest Stretch', reps: '3 × 10–12', rest: '2 min', defaultWeight: 35 },
-      { id: 'p5', name: '5. Lateral Raises', target: 'Side Delts', reps: '3 × 12–15', rest: '2 min', defaultWeight: 20 },
-      { id: 'p6', name: '6. Tricep Rope Pushdowns', target: 'Tricep Extension', reps: '3 × 10–12', rest: '2 min', defaultWeight: 45 }
+      { id: 'p1', name: '1. Flat Barbell Bench Press', target: 'Chest & Triceps', reps: '3 × 6–8', rest: '3 min', defaultWeight: 155, note: 'Touch mid-chest, drive feet firm into floor.' },
+      { id: 'p2', name: '2. Standing Overhead Press (OHP)', target: 'Front Delts & Core', reps: '3 × 6–8', rest: '3 min', defaultWeight: 95, note: 'Keep glutes squeezed tight to protect lower back.' },
+      { id: 'p3', name: '3. Incline Dumbbell Press', target: 'Upper Chest', reps: '3 × 8–10', rest: '2.5 min', defaultWeight: 55, note: 'Set bench to 30° angle to minimize front delt takeover.' },
+      { id: 'p4', name: '4. Cable or DB Chest Flys', target: 'Chest Stretch', reps: '3 × 10–12', rest: '2 min', defaultWeight: 35, note: 'Deep stretch at bottom; squeeze peak contraction at top.' },
+      { id: 'p5', name: '5. Lateral Raises', target: 'Side Delts', reps: '3 × 12–15', rest: '2 min', defaultWeight: 20, note: 'Lean forward slightly, lead with elbows, control negative.' },
+      { id: 'p6', name: '6. Tricep Rope Pushdowns', target: 'Tricep Extension', reps: '3 × 10–12', rest: '2 min', defaultWeight: 45, note: 'Keep upper arms pinned firmly to sides throughout.' }
     ],
     pull: [
-      { id: 'u1', name: '1. Lat Pulldowns', target: 'Lats & Upper Back', reps: '3 × 8–10', rest: '3 min', defaultWeight: 120 },
-      { id: 'u2', name: '2. Seated Cable Rows', target: 'Mid-Back & Rhomboids', reps: '3 × 8–10', rest: '2.5 min', defaultWeight: 120 },
-      { id: 'u3', name: '3. Face Pulls', target: 'Rear Delts & Rotator Cuff', reps: '3 × 12–15', rest: '2 min', defaultWeight: 40 },
-      { id: 'u4', name: '4. Dumbbell or Barbell Bicep Curls', target: 'Biceps', reps: '3 × 10–12', rest: '2 min', defaultWeight: 30 },
-      { id: 'u5', name: '5. Farmer’s Walk', target: 'Traps, Grip & Core', reps: '3 × 45–60s', rest: '2 min', defaultWeight: 50 }
+      { id: 'u1', name: '1. Lat Pulldowns', target: 'Lats & Upper Back', reps: '3 × 8–10', rest: '3 min', defaultWeight: 120, note: 'Pull to upper chest with slight backward lean for lats.' },
+      { id: 'u2', name: '2. Seated Cable Rows', target: 'Mid-Back & Rhomboids', reps: '3 × 8–10', rest: '2.5 min', defaultWeight: 120, note: 'Mid-back focus. Squeeze shoulder blades fully at peak.' },
+      { id: 'u3', name: '3. Face Pulls', target: 'Rear Delts & Rotator Cuff', reps: '3 × 12–15', rest: '2 min', defaultWeight: 40, note: 'Pull rope attachment toward forehead/eyes.' },
+      { id: 'u4', name: '4. Dumbbell or Barbell Bicep Curls', target: 'Biceps', reps: '3 × 10–12', rest: '2 min', defaultWeight: 30, note: 'Strict posture—avoid torso swinging to isolate biceps.' },
+      { id: 'u5', name: '5. Farmer’s Walk', target: 'Traps, Grip & Core', reps: '3 × 45–60s', rest: '2 min', defaultWeight: 50, note: 'Walk tall with heavy dumbbells, shoulders pinned back.' }
     ]
   };
 
   let activeTab = 'legs';
-  let currentUser = null;
   let timerInterval = null;
   let timerSecondsLeft = 0;
 
   window.onload = function() {
+    loadUsername();
     renderExerciseCards();
     switchTab('legs');
-
-    // Initialize Auth state monitor
-    const { onAuthStateChanged, signInAnonymously, signInWithCustomToken } = window.firebaseModule;
-    const auth = window.firebaseAuth;
-
-    // RULE 3: Authenticate first
-    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-      signInWithCustomToken(auth, __initial_auth_token).catch(() => signInAnonymously(auth));
-    } else {
-      signInAnonymously(auth).catch(err => console.error("Anon auth failed:", err));
-    }
-
-    onAuthStateChanged(auth, (user) => {
-      currentUser = user;
-      const statusText = document.getElementById('userStatusText');
-      const logoutSec = document.getElementById('logoutSection');
-
-      if (user) {
-        if (user.isAnonymous) {
-          statusText.textContent = `Logged in as Guest (${user.uid.slice(0, 6)}...)`;
-          logoutSec.classList.add('hidden');
-        } else {
-          statusText.textContent = `Logged in: ${user.email}`;
-          logoutSec.classList.remove('hidden');
-        }
-        fetchHistoryLogs();
-      } else {
-        statusText.textContent = 'Not connected';
-        logoutSec.classList.add('hidden');
-      }
-    });
   };
 
+  function loadUsername() {
+    const savedName = localStorage.getItem('ppl_user_name');
+    if (savedName) {
+      document.getElementById('usernameInput').value = savedName;
+    }
+  }
+
+  function saveUsername(val) {
+    localStorage.setItem('ppl_user_name', val || 'Lifter');
+  }
+
   function renderExerciseCards() {
+    const savedWeights = JSON.parse(localStorage.getItem('ppl_exercise_weights') || '{}');
+
     ['legs', 'push', 'pull'].forEach(day => {
       const container = document.getElementById(`${day}-exercises`);
       container.innerHTML = '';
 
       WORKOUT_DATA[day].forEach(ex => {
         const borderClass = day === 'legs' ? 'legs-border' : (day === 'push' ? 'push-border' : 'pull-border');
+        const weightValue = savedWeights[ex.id] !== undefined ? savedWeights[ex.id] : ex.defaultWeight;
+
         const card = document.createElement('div');
         card.className = `exercise-card bg-slate-800 border border-slate-700 rounded-xl p-3.5 shadow-sm transition ${borderClass}`;
         card.id = `card-${ex.id}`;
@@ -378,18 +247,22 @@
             </label>
           </div>
 
-          <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400 mb-3 bg-slate-900/40 p-2 rounded-lg">
+          <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400 mb-2 bg-slate-900/40 p-2 rounded-lg">
             <span>🎯 ${ex.reps}</span>
             <span>⏱️ ${ex.rest} rest</span>
+          </div>
+
+          <div class="text-[11px] text-slate-300 italic mb-3 bg-slate-900/20 px-2 py-1 rounded border-l-2 border-slate-600">
+            ${ex.note}
           </div>
 
           <div class="grid grid-cols-3 gap-2">
             <div>
               <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Weight (lbs)</label>
-              <input type="number" id="weight-${ex.id}" value="${ex.defaultWeight}" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white font-semibold focus:border-blue-500 focus:outline-none">
+              <input type="number" id="weight-${ex.id}" value="${weightValue}" onchange="cacheExerciseWeight('${ex.id}', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white font-semibold focus:border-blue-500 focus:outline-none">
             </div>
             <div>
-              <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Sets Completed</label>
+              <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Sets Done</label>
               <input type="number" id="sets-${ex.id}" value="3" min="0" max="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white font-semibold focus:border-blue-500 focus:outline-none">
             </div>
             <div>
@@ -403,10 +276,15 @@
     });
   }
 
+  function cacheExerciseWeight(id, val) {
+    const savedWeights = JSON.parse(localStorage.getItem('ppl_exercise_weights') || '{}');
+    savedWeights[id] = Number(val) || 0;
+    localStorage.setItem('ppl_exercise_weights', JSON.stringify(savedWeights));
+  }
+
   function switchTab(tab) {
     activeTab = tab;
     
-    // Update tab buttons style
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.classList.remove('bg-blue-600', 'bg-red-600', 'bg-green-600', 'bg-slate-700', 'text-white');
       btn.classList.add('bg-slate-800', 'text-slate-300');
@@ -418,10 +296,8 @@
       activeBtn.classList.add('bg-slate-700', 'text-white');
     }
 
-    // Hide all panels
     document.querySelectorAll('.workout-panel').forEach(p => p.classList.add('hidden'));
 
-    // Show panel or all
     const saveBar = document.getElementById('saveBar');
     const activeTabName = document.getElementById('activeTabName');
 
@@ -430,11 +306,11 @@
       document.getElementById('panel-push').classList.remove('hidden');
       document.getElementById('panel-pull').classList.remove('hidden');
       saveBar.classList.remove('hidden');
-      activeTabName.textContent = 'Full PPL';
+      activeTabName.textContent = 'FULL PPL';
     } else if (tab === 'history') {
       document.getElementById('panel-history').classList.remove('hidden');
       saveBar.classList.add('hidden');
-      fetchHistoryLogs();
+      renderHistoryLogs();
     } else {
       document.getElementById(`panel-${tab}`).classList.remove('hidden');
       saveBar.classList.remove('hidden');
@@ -482,7 +358,7 @@
       updateTimerDisplay();
       if (timerSecondsLeft <= 0) {
         stopTimer();
-        showToast('⏰ Rest time is up! Start your next set!');
+        showToast('⏰ Rest time complete! Get back to your set!');
       }
     }, 1000);
   }
@@ -499,17 +375,7 @@
     document.getElementById('timerDisplay').textContent = `${m}:${s}`;
   }
 
-  async function saveCurrentWorkoutLog() {
-    if (!currentUser) {
-      showToast('⚠️ Please login to save workout logs!');
-      openAuthModal();
-      return;
-    }
-
-    const { doc, setDoc, collection, addDoc } = window.firebaseModule;
-    const db = window.firebaseDb;
-    const appId = window.appId;
-
+  function saveCurrentWorkoutLog() {
     let targetList = [];
     if (activeTab === 'all') {
       targetList = [...WORKOUT_DATA.legs, ...WORKOUT_DATA.push, ...WORKOUT_DATA.pull];
@@ -519,11 +385,14 @@
       targetList = WORKOUT_DATA[activeTab];
     }
 
-    const logData = {
+    const userName = document.getElementById('usernameInput').value || 'Lifter';
+
+    const logEntry = {
+      id: Date.now(),
+      userName: userName,
       date: new Date().toISOString(),
       displayDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
       workoutType: activeTab.toUpperCase(),
-      userId: currentUser.uid,
       exercises: []
     };
 
@@ -533,7 +402,7 @@
       const sets = document.getElementById(`sets-${ex.id}`).value;
       const reps = document.getElementById(`reps-${ex.id}`).value;
 
-      logData.exercises.push({
+      logEntry.exercises.push({
         id: ex.id,
         name: ex.name,
         completed: check ? check.checked : false,
@@ -543,133 +412,57 @@
       });
     });
 
-    try {
-      // RULE 1: Strict collection path /artifacts/{appId}/users/{userId}/{collectionName}
-      const userLogsCollection = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'workout_logs');
-      await addDoc(userLogsCollection, logData);
-      showToast('✅ Workout Log Saved to Cloud!');
-    } catch (err) {
-      console.error("Error saving log:", err);
-      showToast('❌ Error saving log. Try again.');
-    }
+    const existingLogs = JSON.parse(localStorage.getItem('ppl_workout_logs') || '[]');
+    existingLogs.unshift(logEntry);
+    localStorage.setItem('ppl_workout_logs', JSON.stringify(existingLogs));
+
+    showToast('✅ Session Saved to Local History!');
   }
 
-  async function fetchHistoryLogs() {
+  function renderHistoryLogs() {
     const container = document.getElementById('historyLogsContainer');
-    if (!currentUser) {
-      container.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Sign in to view saved logs.</p>';
+    const logs = JSON.parse(localStorage.getItem('ppl_workout_logs') || '[]');
+
+    if (logs.length === 0) {
+      container.innerHTML = '<p class="text-sm text-slate-500 text-center py-8">No saved workout sessions found in local history. Complete a workout and click "Save Session Log"!</p>';
       return;
     }
 
-    const { collection, getDocs } = window.firebaseModule;
-    const db = window.firebaseDb;
-    const appId = window.appId;
+    container.innerHTML = '';
+    logs.forEach(log => {
+      const item = document.createElement('div');
+      item.className = 'bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2 shadow-md';
 
-    try {
-      // RULE 1 & 2: Simple collection query without complex orderBy/where
-      const userLogsCollection = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'workout_logs');
-      const snapshot = await getDocs(userLogsCollection);
+      const completedCount = log.exercises.filter(e => e.completed).length;
 
-      if (snapshot.empty) {
-        container.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">No workout logs saved yet. Finish a workout and save!</p>';
-        return;
-      }
+      const exercisesHtml = log.exercises.map(e => `
+        <div class="flex justify-between items-center text-xs py-1 border-b border-slate-700/50 ${e.completed ? 'text-slate-200' : 'text-slate-500 opacity-50'}">
+          <span>${e.completed ? '✓' : '✕'} ${e.name}</span>
+          <span class="font-mono font-semibold">${e.weight} lbs × ${e.sets}s (${e.reps} reps)</span>
+        </div>
+      `).join('');
 
-      let logs = [];
-      snapshot.forEach(doc => logs.push({ id: doc.id, ...doc.data() }));
-
-      // Sort in memory by date descending
-      logs.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-      container.innerHTML = '';
-      logs.forEach(log => {
-        const item = document.createElement('div');
-        item.className = 'bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2';
-
-        const completedEx = log.exercises ? log.exercises.filter(e => e.completed) : [];
-
-        let exercisesHtml = '';
-        if (log.exercises) {
-          exercisesHtml = log.exercises.map(e => `
-            <div class="flex justify-between items-center text-xs py-1 border-b border-slate-700/50 ${e.completed ? 'text-slate-200' : 'text-slate-500 opacity-60'}">
-              <span>${e.completed ? '✓' : '✗'} ${e.name}</span>
-              <span class="font-mono font-semibold">${e.weight} lbs × ${e.sets}s</span>
-            </div>
-          `).join('');
-        }
-
-        item.innerHTML = `
-          <div class="flex justify-between items-center text-xs">
-            <span class="font-bold text-blue-400 text-sm">${log.workoutType || 'PPL'} Session</span>
-            <span class="text-slate-400">${log.displayDate || ''}</span>
+      item.innerHTML = `
+        <div class="flex justify-between items-center border-b border-slate-700/80 pb-2">
+          <div>
+            <span class="font-bold text-blue-400 text-sm">${log.workoutType} Session</span>
+            <span class="text-xs text-slate-400 block">${log.userName} • ${log.displayDate}</span>
           </div>
-          <div class="text-xs text-slate-400 mb-2">${completedEx.length} / ${log.exercises ? log.exercises.length : 0} Exercises Completed</div>
-          <div class="space-y-0.5">${exercisesHtml}</div>
-        `;
-        container.appendChild(item);
-      });
-
-    } catch (err) {
-      console.error("Error fetching history:", err);
-      container.innerHTML = '<p class="text-xs text-red-400 text-center py-4">Failed to load logs.</p>';
-    }
+          <span class="text-xs bg-slate-900 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-md">
+            ${completedCount}/${log.exercises.length} Done
+          </span>
+        </div>
+        <div class="space-y-0.5 pt-1">${exercisesHtml}</div>
+      `;
+      container.appendChild(item);
+    });
   }
 
-  function openAuthModal() {
-    document.getElementById('authModal').classList.remove('hidden');
-  }
-
-  function closeAuthModal() {
-    document.getElementById('authModal').classList.add('hidden');
-  }
-
-  async function handleLogin() {
-    const email = document.getElementById('authEmail').value;
-    const pass = document.getElementById('authPassword').value;
-    const { signInWithEmailAndPassword } = window.firebaseModule;
-
-    try {
-      await signInWithEmailAndPassword(window.firebaseAuth, email, pass);
-      closeAuthModal();
-      showToast('Logged in successfully!');
-    } catch (err) {
-      alert('Login error: ' + err.message);
-    }
-  }
-
-  async function handleSignup() {
-    const email = document.getElementById('authEmail').value;
-    const pass = document.getElementById('authPassword').value;
-    const { createUserWithEmailAndPassword } = window.firebaseModule;
-
-    try {
-      await createUserWithEmailAndPassword(window.firebaseAuth, email, pass);
-      closeAuthModal();
-      showToast('Account created!');
-    } catch (err) {
-      alert('Signup error: ' + err.message);
-    }
-  }
-
-  async function handleGuestLogin() {
-    const { signInAnonymously } = window.firebaseModule;
-    try {
-      await signInAnonymously(window.firebaseAuth);
-      closeAuthModal();
-      showToast('Logged in as Guest');
-    } catch (err) {
-      alert('Guest login error: ' + err.message);
-    }
-  }
-
-  async function handleLogout() {
-    const { signOut } = window.firebaseModule;
-    try {
-      await signOut(window.firebaseAuth);
-      closeAuthModal();
-      showToast('Signed out');
-    } catch (err) {
-      console.error(err);
+  function clearHistoryLogs() {
+    if (confirm("Are you sure you want to clear your saved workout history?")) {
+      localStorage.removeItem('ppl_workout_logs');
+      renderHistoryLogs();
+      showToast('Cleared all local logs!');
     }
   }
 
