@@ -428,55 +428,69 @@
 
     // Load History
     async function loadHistory() {
-      const historyList = document.getElementById('history-list');
-      const countLabel = document.getElementById('log-count');
-      historyList.innerHTML = `<p class="text-xs text-slate-400">Loading history...</p>`;
+    const historyList = document.getElementById('history-list');
+    const countLabel = document.getElementById('log-count');
+    historyList.innerHTML = `<p class="text-xs text-slate-400">Loading history...</p>`;
 
-      let logs = [];
-      if (currentUser) {
+    let logs = [];
+    if (currentUser) {
         try {
-          const q = query(collection(db, "users", currentUser.uid, "logs"), orderBy("timestamp", "desc"));
-          const snapshot = await getDocs(q);
-          snapshot.forEach(docSnap => logs.push({ docId: docSnap.id, ...docSnap.data() }));
-        } catch (e) { console.error(e); }
-      } else {
+        // First attempt: Ordered query
+        const q = query(collection(db, "users", currentUser.uid, "logs"), orderBy("timestamp", "desc"));
+        const snapshot = await getDocs(q);
+        snapshot.forEach(docSnap => logs.push({ docId: docSnap.id, ...docSnap.data() }));
+        } catch (e) {
+        console.warn("Ordered query failed, falling back to unordered fetch:", e);
+        try {
+            // Fallback attempt: Fetch without orderBy and sort client-side in JS
+            const fallbackQ = collection(db, "users", currentUser.uid, "logs");
+            const snapshot = await getDocs(fallbackQ);
+            snapshot.forEach(docSnap => logs.push({ docId: docSnap.id, ...docSnap.data() }));
+            logs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        } catch (fallbackErr) {
+            console.error("Cloud history fetch error:", fallbackErr);
+            historyList.innerHTML = `<div class="bg-slate-800 p-4 rounded-xl border border-red-500/30 text-xs text-red-400">Error loading cloud history: ${fallbackErr.message}</div>`;
+            return;
+        }
+        }
+    } else {
         logs = JSON.parse(localStorage.getItem('ppl_logs') || '[]');
-      }
+    }
 
-      countLabel.innerText = `${logs.length} Sessions Logged`;
+    countLabel.innerText = `${logs.length} Sessions Logged`;
 
-      if (logs.length === 0) {
-        historyList.innerHTML = `<div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center text-xs text-slate-400">No workout history logged yet.</div>`;
+    if (logs.length === 0) {
+        historyList.innerHTML = `<div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center text-xs text-slate-400">No workout history logged yet. Complete a session and click "Save Session Log".</div>`;
         return;
-      }
+    }
 
-      let html = '';
-      logs.forEach((log) => {
+    let html = '';
+    logs.forEach((log) => {
         html += `
-          <div class="bg-slate-800 border border-slate-700 rounded-xl p-3.5 text-xs">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-3.5 text-xs">
             <div class="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
-              <div>
+            <div>
                 <span class="font-bold text-slate-100 block">${log.title}</span>
-                <span class="text-[10px] text-blue-400 font-semibold"><i class="fa-regular fa-calendar-days mr-1"></i>${log.dateFormatted}</span>
-              </div>
-              <button onclick="deleteLog('${log.docId || ''}')" class="text-slate-500 hover:text-red-400 p-1">
+                <span class="text-[10px] text-blue-400 font-semibold"><i class="fa-regular fa-calendar-days mr-1"></i>${log.dateFormatted || log.date}</span>
+            </div>
+            <button onclick="deleteLog('${log.docId || ''}')" class="text-slate-500 hover:text-red-400 p-1">
                 <i class="fa-solid fa-trash"></i>
-              </button>
+            </button>
             </div>
             <div class="space-y-2 mt-2">
-              ${log.exercises.map(ex => `
+            ${(log.exercises || []).map(ex => `
                 <div class="border-b border-slate-700/40 pb-1.5">
-                  <div class="font-bold text-slate-200">✅ ${ex.name}</div>
-                  <div class="flex flex-wrap gap-2 text-[11px] text-blue-400 mt-0.5">
-                    ${ex.setsData.map((s, i) => `<span>Set ${i+1}: <strong>${s.weight} lbs × ${s.reps}</strong></span>`).join(' • ')}
-                  </div>
+                <div class="font-bold text-slate-200">✅ ${ex.name}</div>
+                <div class="flex flex-wrap gap-2 text-[11px] text-blue-400 mt-0.5">
+                    ${(ex.setsData || []).map((s, i) => `<span>Set ${i+1}: <strong>${s.weight} lbs × ${s.reps}</strong></span>`).join(' • ')}
                 </div>
-              `).join('')}
+                </div>
+            `).join('')}
             </div>
-          </div>
+        </div>
         `;
-      });
-      historyList.innerHTML = html;
+    });
+    historyList.innerHTML = html;
     }
 
     // Delete History Log
