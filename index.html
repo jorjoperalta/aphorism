@@ -190,9 +190,10 @@
     let timerInterval = null;
     let fetchedLogs = [];
 
+    // Master Default Templates without rigid 'Day N' prefixes
     const defaultTemplates = {
       legs: {
-        title: "🔵 Day 1: Legs / Lower Body",
+        title: "🔵 Legs / Lower Body",
         accent: "border-blue-500",
         exercises: [
           { id: "leg_1", name: "Hack Squat / Barbell Squat", target: "Quads & Glutes", setsCount: 3, rest: "3 min", setsData: [{ weight: 185, reps: 8 }, { weight: 185, reps: 8 }, { weight: 185, reps: 8 }] },
@@ -203,7 +204,7 @@
         ]
       },
       push: {
-        title: "🔴 Day 2: Push (Chest, Shoulders, Triceps)",
+        title: "🔴 Push (Chest, Shoulders, Triceps)",
         accent: "border-red-500",
         exercises: [
           { id: "push_1", name: "Flat Barbell Bench Press", target: "Chest & Triceps", setsCount: 3, rest: "3 min", setsData: [{ weight: 175, reps: 8 }, { weight: 175, reps: 8 }, { weight: 175, reps: 8 }] },
@@ -215,7 +216,7 @@
         ]
       },
       pull: {
-        title: "🟢 Day 3: Pull (Back, Biceps, Rear Delts)",
+        title: "🟢 Pull (Back, Biceps, Rear Delts)",
         accent: "border-emerald-500",
         exercises: [
           { id: "pull_1", name: "Lat Pulldowns", target: "Lats & Upper Back", setsCount: 3, rest: "3 min", setsData: [{ weight: 140, reps: 10 }, { weight: 140, reps: 10 }, { weight: 140, reps: 10 }] },
@@ -523,6 +524,7 @@
       renderHistoryList();
     }
 
+    // Render Workout History List with Defensive Legacy Normalization & Title Editing
     function renderHistoryList() {
       const historyList = document.getElementById('history-list');
       if (fetchedLogs.length === 0) {
@@ -532,6 +534,7 @@
 
       let html = '';
       fetchedLogs.forEach((log, logIdx) => {
+        // Defensive Legacy Normalization
         const exercises = (log.exercises || []).map(ex => {
           if (!ex.setsData || ex.setsData.length === 0) {
             const fallbackWeight = ex.weight || 100;
@@ -550,14 +553,16 @@
         if (log.isEditing) {
           html += `
             <div class="bg-slate-800 border-2 border-blue-500/80 rounded-xl p-4 text-xs space-y-4">
-              <div class="flex justify-between items-center border-b border-slate-700 pb-2">
-                <span class="font-bold text-slate-100">${log.title || 'Workout Session'}</span>
-                <div class="flex gap-2">
+              <!-- Editable Session Header -->
+              <div class="flex justify-between items-center border-b border-slate-700 pb-2 gap-2">
+                <input type="text" value="${log.title || 'Workout Session'}" onchange="fetchedLogs[${logIdx}].title=this.value" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-100 font-bold text-sm w-full focus:outline-none focus:border-blue-500">
+                <div class="flex gap-2 shrink-0">
                   <button onclick="saveEditedLog(${logIdx})" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1 rounded transition">Save</button>
                   <button onclick="toggleEditHistory(${logIdx})" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold px-3 py-1 rounded transition">Cancel</button>
                 </div>
               </div>
 
+              <!-- Exercise Edit Cards -->
               ${exercises.map((ex, exIdx) => `
                 <div class="bg-slate-900/70 border border-slate-700/60 p-3 rounded-lg space-y-2">
                   <div class="flex justify-between items-center gap-2 border-b border-slate-800 pb-1.5">
@@ -582,7 +587,7 @@
                     `).join('')}
                     <div class="flex justify-between items-center pt-2">
                       <button onclick="addSetToHistoryEx(${logIdx},${exIdx})" class="text-[11px] text-blue-400 hover:text-blue-300 font-semibold">+ Add Set</button>
-                      ${ex.setsData.length > 1 ? `<button onclick="removeSetFromHistoryEx(${logIdx}, ${exIdx})" class="text-[11px] text-red-400 hover:text-red-300 font-semibold">- Remove Set</button>` : ''}
+                      <button onclick="removeSetFromHistoryEx(${logIdx},${exIdx})" class="text-[11px] text-red-400 hover:text-red-300 font-semibold">- Remove Set</button>
                     </div>
                   </div>
                 </div>
@@ -594,11 +599,11 @@
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-3.5 text-xs">
               <div class="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
                 <div>
-                  <span class="font-bold text-slate-100 block">${log.title || 'Workout Session'}</span>
+                  <span class="font-bold text-slate-100 block text-sm">${log.title || 'Workout Session'}</span>
                   <span class="text-[10px] text-blue-400 font-semibold"><i class="fa-regular fa-calendar-days mr-1"></i>${log.dateFormatted || log.date}</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <button onclick="toggleEditHistory(${logIdx})" class="text-blue-400 hover:text-blue-300 text-xs font-semibold px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20">
+                  <button onclick="toggleEditHistory(${logIdx})" class="text-blue-400 hover:text-blue-300 text-xs font-semibold px-2.5 py-1 rounded bg-blue-500/10 border border-blue-500/20">
                     <i class="fa-solid fa-pen mr-1"></i> Edit
                   </button>
                   <button onclick="deleteLog('${log.docId || ''}', ${log.localIdx})" class="text-slate-500 hover:text-red-400 p-1">
@@ -632,49 +637,46 @@
       fetchedLogs[logIdx].exercises[exIdx].name = val;
     };
 
-    // Add Set to History Exercise
     window.addSetToHistoryEx = (logIdx, exIdx) => {
-    const ex = fetchedLogs[logIdx].exercises[exIdx];
-    if (!ex.setsData) {
+      const ex = fetchedLogs[logIdx].exercises[exIdx];
+      if (!ex.setsData) {
         const fallbackWeight = ex.weight || 100;
         ex.setsData = [
-        { weight: fallbackWeight, reps: 10 },
-        { weight: fallbackWeight, reps: 10 },
-        { weight: fallbackWeight, reps: 10 }
+          { weight: fallbackWeight, reps: 10 },
+          { weight: fallbackWeight, reps: 10 },
+          { weight: fallbackWeight, reps: 10 }
         ];
-    }
-    const lastSet = ex.setsData[ex.setsData.length - 1] || { weight: 100, reps: 10 };
-    ex.setsData.push({ ...lastSet });
-    renderHistoryList();
+      }
+      const lastSet = ex.setsData[ex.setsData.length - 1] || { weight: 100, reps: 10 };
+      ex.setsData.push({ ...lastSet });
+      renderHistoryList();
     };
 
-    // Remove Set from History Exercise (Safely Handles Legacy Records)
     window.removeSetFromHistoryEx = (logIdx, exIdx) => {
-    const ex = fetchedLogs[logIdx].exercises[exIdx];
-    if (!ex.setsData) {
+      const ex = fetchedLogs[logIdx].exercises[exIdx];
+      if (!ex.setsData) {
         const fallbackWeight = ex.weight || 100;
         ex.setsData = [
-        { weight: fallbackWeight, reps: 10 },
-        { weight: fallbackWeight, reps: 10 }
+          { weight: fallbackWeight, reps: 10 },
+          { weight: fallbackWeight, reps: 10 }
         ];
-    } else if (ex.setsData.length > 1) {
+      } else if (ex.setsData.length > 1) {
         ex.setsData.pop();
-    }
-    renderHistoryList();
+      }
+      renderHistoryList();
     };
 
-    // Update History Set Values
     window.updateHistorySetVal = (logIdx, exIdx, setIdx, field, val) => {
-    const ex = fetchedLogs[logIdx].exercises[exIdx];
-    if (!ex.setsData) {
+      const ex = fetchedLogs[logIdx].exercises[exIdx];
+      if (!ex.setsData) {
         const fallbackWeight = ex.weight || 100;
         ex.setsData = [
-        { weight: fallbackWeight, reps: 10 },
-        { weight: fallbackWeight, reps: 10 },
-        { weight: fallbackWeight, reps: 10 }
+          { weight: fallbackWeight, reps: 10 },
+          { weight: fallbackWeight, reps: 10 },
+          { weight: fallbackWeight, reps: 10 }
         ];
-    }
-    ex.setsData[setIdx][field] = parseFloat(val) || 0;
+      }
+      ex.setsData[setIdx][field] = parseFloat(val) || 0;
     };
 
     window.deleteExFromHistory = (logIdx, exIdx) => {
@@ -689,11 +691,15 @@
       if (currentUser && log.docId) {
         try {
           const docRef = doc(db, "users", currentUser.uid, "logs", log.docId);
-          await updateDoc(docRef, { exercises: log.exercises });
+          await updateDoc(docRef, { 
+            title: log.title,
+            exercises: log.exercises 
+          });
           alert("Log updated successfully in cloud!");
         } catch (e) { alert("Error saving log edit: " + e.message); }
       } else {
         const localLogs = JSON.parse(localStorage.getItem('ppl_logs') || '[]');
+        localLogs[log.localIdx].title = log.title;
         localLogs[log.localIdx].exercises = log.exercises;
         localStorage.setItem('ppl_logs', JSON.stringify(localLogs));
         alert("Log updated locally!");
