@@ -188,9 +188,10 @@
     let currentUser = null;
     let currentActiveDay = 'legs';
     let timerInterval = null;
-    let fetchedLogs = [];
 
-    // Master Default Templates without rigid 'Day N' prefixes
+    // Attach fetchedLogs to window for global inline accessibility
+    window.fetchedLogs = [];
+
     const defaultTemplates = {
       legs: {
         title: "🔵 Legs / Lower Body",
@@ -506,35 +507,33 @@
       const countLabel = document.getElementById('log-count');
       historyList.innerHTML = `<p class="text-xs text-slate-400">Loading history...</p>`;
 
-      fetchedLogs = [];
+      window.fetchedLogs = [];
       if (currentUser) {
         try {
           const q = collection(db, "users", currentUser.uid, "logs");
           const snapshot = await getDocs(q);
-          snapshot.forEach(docSnap => fetchedLogs.push({ docId: docSnap.id, isEditing: false, ...docSnap.data() }));
-          fetchedLogs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          snapshot.forEach(docSnap => window.fetchedLogs.push({ docId: docSnap.id, isEditing: false, ...docSnap.data() }));
+          window.fetchedLogs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         } catch (e) {
           console.error("Cloud load history error:", e);
         }
       } else {
-        fetchedLogs = JSON.parse(localStorage.getItem('ppl_logs') || '[]').map((l, i) => ({ localIdx: i, isEditing: false, ...l }));
+        window.fetchedLogs = JSON.parse(localStorage.getItem('ppl_logs') || '[]').map((l, i) => ({ localIdx: i, isEditing: false, ...l }));
       }
 
-      countLabel.innerText = `${fetchedLogs.length} Sessions Logged`;
+      countLabel.innerText = `${window.fetchedLogs.length} Sessions Logged`;
       renderHistoryList();
     }
 
-    // Render Workout History List with Defensive Legacy Normalization & Title Editing
     function renderHistoryList() {
       const historyList = document.getElementById('history-list');
-      if (fetchedLogs.length === 0) {
+      if (window.fetchedLogs.length === 0) {
         historyList.innerHTML = `<div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center text-xs text-slate-400">No workout history logged yet.</div>`;
         return;
       }
 
       let html = '';
-      fetchedLogs.forEach((log, logIdx) => {
-        // Defensive Legacy Normalization
+      window.fetchedLogs.forEach((log, logIdx) => {
         const exercises = (log.exercises || []).map(ex => {
           if (!ex.setsData || ex.setsData.length === 0) {
             const fallbackWeight = ex.weight || 100;
@@ -553,16 +552,14 @@
         if (log.isEditing) {
           html += `
             <div class="bg-slate-800 border-2 border-blue-500/80 rounded-xl p-4 text-xs space-y-4">
-              <!-- Editable Session Header -->
               <div class="flex justify-between items-center border-b border-slate-700 pb-2 gap-2">
-                <input type="text" value="${log.title || 'Workout Session'}" onchange="fetchedLogs[${logIdx}].title=this.value" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-100 font-bold text-sm w-full focus:outline-none focus:border-blue-500">
+                <input type="text" value="${log.title || 'Workout Session'}" onchange="updateHistoryTitle(${logIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-100 font-bold text-sm w-full focus:outline-none focus:border-blue-500">
                 <div class="flex gap-2 shrink-0">
                   <button onclick="saveEditedLog(${logIdx})" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1 rounded transition">Save</button>
                   <button onclick="toggleEditHistory(${logIdx})" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold px-3 py-1 rounded transition">Cancel</button>
                 </div>
               </div>
 
-              <!-- Exercise Edit Cards -->
               ${exercises.map((ex, exIdx) => `
                 <div class="bg-slate-900/70 border border-slate-700/60 p-3 rounded-lg space-y-2">
                   <div class="flex justify-between items-center gap-2 border-b border-slate-800 pb-1.5">
@@ -628,17 +625,22 @@
       historyList.innerHTML = html;
     }
 
+    // Explicit globally-scoped event handler functions
     window.toggleEditHistory = (logIdx) => {
-      fetchedLogs[logIdx].isEditing = !fetchedLogs[logIdx].isEditing;
+      window.fetchedLogs[logIdx].isEditing = !window.fetchedLogs[logIdx].isEditing;
       renderHistoryList();
     };
 
+    window.updateHistoryTitle = (logIdx, val) => {
+      window.fetchedLogs[logIdx].title = val;
+    };
+
     window.updateHistoryExName = (logIdx, exIdx, val) => {
-      fetchedLogs[logIdx].exercises[exIdx].name = val;
+      window.fetchedLogs[logIdx].exercises[exIdx].name = val;
     };
 
     window.addSetToHistoryEx = (logIdx, exIdx) => {
-      const ex = fetchedLogs[logIdx].exercises[exIdx];
+      const ex = window.fetchedLogs[logIdx].exercises[exIdx];
       if (!ex.setsData) {
         const fallbackWeight = ex.weight || 100;
         ex.setsData = [
@@ -653,7 +655,7 @@
     };
 
     window.removeSetFromHistoryEx = (logIdx, exIdx) => {
-      const ex = fetchedLogs[logIdx].exercises[exIdx];
+      const ex = window.fetchedLogs[logIdx].exercises[exIdx];
       if (!ex.setsData) {
         const fallbackWeight = ex.weight || 100;
         ex.setsData = [
@@ -667,7 +669,7 @@
     };
 
     window.updateHistorySetVal = (logIdx, exIdx, setIdx, field, val) => {
-      const ex = fetchedLogs[logIdx].exercises[exIdx];
+      const ex = window.fetchedLogs[logIdx].exercises[exIdx];
       if (!ex.setsData) {
         const fallbackWeight = ex.weight || 100;
         ex.setsData = [
@@ -680,26 +682,26 @@
     };
 
     window.deleteExFromHistory = (logIdx, exIdx) => {
-      fetchedLogs[logIdx].exercises.splice(exIdx, 1);
+      window.fetchedLogs[logIdx].exercises.splice(exIdx, 1);
       renderHistoryList();
     };
 
     window.saveEditedLog = async (logIdx) => {
-      const log = fetchedLogs[logIdx];
+      const log = window.fetchedLogs[logIdx];
       log.isEditing = false;
 
       if (currentUser && log.docId) {
         try {
           const docRef = doc(db, "users", currentUser.uid, "logs", log.docId);
           await updateDoc(docRef, { 
-            title: log.title,
+            title: log.title || 'Workout Session',
             exercises: log.exercises 
           });
           alert("Log updated successfully in cloud!");
         } catch (e) { alert("Error saving log edit: " + e.message); }
       } else {
         const localLogs = JSON.parse(localStorage.getItem('ppl_logs') || '[]');
-        localLogs[log.localIdx].title = log.title;
+        localLogs[log.localIdx].title = log.title || 'Workout Session';
         localLogs[log.localIdx].exercises = log.exercises;
         localStorage.setItem('ppl_logs', JSON.stringify(localLogs));
         alert("Log updated locally!");
