@@ -72,9 +72,6 @@
     <!-- Active Routine Header Bar -->
     <div id="routine-header-bar" class="flex justify-between items-center mb-3">
       <h2 id="routine-title" class="text-base font-bold text-slate-200"></h2>
-      <button onclick="toggleTemplateEditMode()" id="btn-edit-template" class="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1">
-        <i class="fa-solid fa-pen-to-square"></i> Edit Master Template
-      </button>
     </div>
 
     <!-- Workout Container -->
@@ -153,7 +150,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, getDocs, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, getDocs, orderBy, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBOoRAVHd0M-k_j49CqD9bbjKbMMfnY5LM",
@@ -172,8 +169,8 @@
 
     let currentUser = null;
     let currentActiveDay = 'legs';
-    let isEditingMasterTemplate = false;
     let timerInterval = null;
+    let fetchedLogs = [];
 
     // Master Default Templates
     const defaultTemplates = {
@@ -213,7 +210,6 @@
       }
     };
 
-    // Current Session Instance Data
     let activeSessionExercises = [];
 
     function setDefaultDateTime() {
@@ -273,13 +269,11 @@
       }
     };
 
-    // Load Routine Template for Active Day
+    // Load Routine Template
     async function initRoutineForDay(day) {
       document.getElementById('routine-title').innerText = defaultTemplates[day].title;
-      
       let templateExercises = defaultTemplates[day].exercises;
-      
-      // Load user custom template if present in Firestore
+
       if (currentUser) {
         try {
           const userDoc = await getDoc(doc(db, "users", currentUser.uid));
@@ -292,7 +286,6 @@
         if (localTpl) templateExercises = JSON.parse(localTpl);
       }
 
-      // Clone into session memory
       activeSessionExercises = JSON.parse(JSON.stringify(templateExercises)).map(ex => ({
         ...ex,
         completed: false
@@ -301,13 +294,13 @@
       renderSessionView();
     }
 
-    // Render Workout Session Cards
+    // Render Active Workout Session
     function renderSessionView() {
       const container = document.getElementById('workout-container');
       const dayData = defaultTemplates[currentActiveDay];
 
       if (activeSessionExercises.length === 0) {
-        container.innerHTML = `<div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center text-xs text-slate-400">No exercises in this session. Click "Edit Master Template" to add exercises.</div>`;
+        container.innerHTML = `<div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center text-xs text-slate-400">No exercises in this session.</div>`;
         return;
       }
 
@@ -324,13 +317,12 @@
                 <button onclick="toggleExerciseDone(${exIdx})" class="px-3 py-1 rounded-lg text-xs font-semibold ${ex.completed ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}">
                   <i class="fa-solid ${ex.completed ? 'fa-check' : 'fa-circle'} mr-1"></i> ${ex.completed ? 'Done' : 'Mark Done'}
                 </button>
-                <button onclick="removeFromCurrentSession(${exIdx})" title="Remove from this session only" class="text-slate-500 hover:text-red-400 p-1">
+                <button onclick="removeFromCurrentSession(${exIdx})" title="Remove from session" class="text-slate-500 hover:text-red-400 p-1">
                   <i class="fa-solid fa-trash-can"></i>
                 </button>
               </div>
             </div>
 
-            <!-- Per-Set Detail Inputs -->
             <div class="space-y-1.5 bg-slate-900/60 p-2.5 rounded-lg text-xs">
               <div class="grid grid-cols-12 gap-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-700/60 pb-1">
                 <span class="col-span-2">Set</span>
@@ -356,18 +348,15 @@
       container.innerHTML = html;
     }
 
-    // Toggle Done
     window.toggleExerciseDone = (idx) => {
       activeSessionExercises[idx].completed = !activeSessionExercises[idx].completed;
       renderSessionView();
     };
 
-    // Update Specific Set Weight/Reps
     window.updateSetVal = (exIdx, setIdx, field, val) => {
       activeSessionExercises[exIdx].setsData[setIdx][field] = parseFloat(val) || 0;
     };
 
-    // Add/Remove Sets in Current Workout
     window.addSetToExercise = (exIdx) => {
       const lastSet = activeSessionExercises[exIdx].setsData[activeSessionExercises[exIdx].setsData.length - 1] || { weight: 100, reps: 10 };
       activeSessionExercises[exIdx].setsData.push({ ...lastSet });
@@ -381,18 +370,17 @@
       }
     };
 
-    // Remove Exercise from THIS Session Only
     window.removeFromCurrentSession = (exIdx) => {
       activeSessionExercises.splice(exIdx, 1);
       renderSessionView();
     };
 
-    // Save Workout Log (Filter out uncompleted/skipped exercises)
+    // Save Workout Session
     window.saveCurrentWorkout = async () => {
       const completedExercises = activeSessionExercises.filter(ex => ex.completed);
 
       if (completedExercises.length === 0) {
-        if (!confirm("No exercises are marked as done. Do you want to save anyway?")) return;
+        if (!confirm("No exercises are marked as done. Save anyway?")) return;
       }
 
       const customDateTimeVal = document.getElementById('workout-datetime').value;
@@ -426,87 +414,163 @@
       initRoutineForDay(currentActiveDay);
     };
 
-    // Load History
+    // Load History with Legacy Parsing & Editable Controls
     async function loadHistory() {
-    const historyList = document.getElementById('history-list');
-    const countLabel = document.getElementById('log-count');
-    historyList.innerHTML = `<p class="text-xs text-slate-400">Loading history...</p>`;
+      const historyList = document.getElementById('history-list');
+      const countLabel = document.getElementById('log-count');
+      historyList.innerHTML = `<p class="text-xs text-slate-400">Loading history...</p>`;
 
-    let logs = [];
-    if (currentUser) {
+      fetchedLogs = [];
+      if (currentUser) {
         try {
-        // First attempt: Ordered query
-        const q = query(collection(db, "users", currentUser.uid, "logs"), orderBy("timestamp", "desc"));
-        const snapshot = await getDocs(q);
-        snapshot.forEach(docSnap => logs.push({ docId: docSnap.id, ...docSnap.data() }));
+          const q = collection(db, "users", currentUser.uid, "logs");
+          const snapshot = await getDocs(q);
+          snapshot.forEach(docSnap => fetchedLogs.push({ docId: docSnap.id, isEditing: false, ...docSnap.data() }));
+          fetchedLogs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         } catch (e) {
-        console.warn("Ordered query failed, falling back to unordered fetch:", e);
-        try {
-            // Fallback attempt: Fetch without orderBy and sort client-side in JS
-            const fallbackQ = collection(db, "users", currentUser.uid, "logs");
-            const snapshot = await getDocs(fallbackQ);
-            snapshot.forEach(docSnap => logs.push({ docId: docSnap.id, ...docSnap.data() }));
-            logs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        } catch (fallbackErr) {
-            console.error("Cloud history fetch error:", fallbackErr);
-            historyList.innerHTML = `<div class="bg-slate-800 p-4 rounded-xl border border-red-500/30 text-xs text-red-400">Error loading cloud history: ${fallbackErr.message}</div>`;
-            return;
+          console.error("Cloud load history error:", e);
         }
-        }
-    } else {
-        logs = JSON.parse(localStorage.getItem('ppl_logs') || '[]');
+      } else {
+        fetchedLogs = JSON.parse(localStorage.getItem('ppl_logs') || '[]').map((l, i) => ({ localIdx: i, isEditing: false, ...l }));
+      }
+
+      countLabel.innerText = `${fetchedLogs.length} Sessions Logged`;
+      renderHistoryList();
     }
 
-    countLabel.innerText = `${logs.length} Sessions Logged`;
-
-    if (logs.length === 0) {
-        historyList.innerHTML = `<div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center text-xs text-slate-400">No workout history logged yet. Complete a session and click "Save Session Log".</div>`;
+    function renderHistoryList() {
+      const historyList = document.getElementById('history-list');
+      if (fetchedLogs.length === 0) {
+        historyList.innerHTML = `<div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center text-xs text-slate-400">No workout history logged yet.</div>`;
         return;
+      }
+
+      let html = '';
+      fetchedLogs.forEach((log, logIdx) => {
+        // Backwards compatibility for legacy records
+        const exercises = (log.exercises || []).map(ex => {
+          if (!ex.setsData || ex.setsData.length === 0) {
+            const fallbackWeight = ex.weight || 100;
+            return {
+              ...ex,
+              setsData: [
+                { weight: fallbackWeight, reps: 10 },
+                { weight: fallbackWeight, reps: 10 },
+                { weight: fallbackWeight, reps: 10 }
+              ]
+            };
+          }
+          return ex;
+        });
+
+        if (log.isEditing) {
+          // Editable Form Mode
+          html += `
+            <div class="bg-slate-800 border-2 border-blue-500/80 rounded-xl p-4 text-xs space-y-3">
+              <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                <span class="font-bold text-slate-100">${log.title || 'Workout Session'}</span>
+                <div class="flex gap-2">
+                  <button onclick="saveEditedLog(${logIdx})" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1 rounded">Save</button>
+                  <button onclick="toggleEditHistory(${logIdx})" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold px-3 py-1 rounded">Cancel</button>
+                </div>
+              </div>
+
+              ${exercises.map((ex, exIdx) => `
+                <div class="bg-slate-900/60 p-2.5 rounded-lg space-y-2">
+                  <div class="font-bold text-slate-200">${ex.name}</div>
+                  <div class="space-y-1">
+                    ${ex.setsData.map((s, sIdx) => `
+                      <div class="grid grid-cols-12 gap-2 items-center">
+                        <span class="col-span-2 text-slate-400 font-bold">Set ${sIdx + 1}</span>
+                        <input type="number" value="${s.weight}" onchange="updateHistorySetVal(${logIdx}, ${exIdx}, ${sIdx}, 'weight', this.value)" class="col-span-5 bg-slate-800 border border-slate-700 rounded px-2 py-0.5 text-blue-400 font-bold">
+                        <input type="number" value="${s.reps}" onchange="updateHistorySetVal(${logIdx}, ${exIdx}, ${sIdx}, 'reps', this.value)" class="col-span-5 bg-slate-800 border border-slate-700 rounded px-2 py-0.5 text-slate-200 font-bold">
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        } else {
+          // Read View Mode
+          html += `
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-3.5 text-xs">
+              <div class="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
+                <div>
+                  <span class="font-bold text-slate-100 block">${log.title || 'Workout Session'}</span>
+                  <span class="text-[10px] text-blue-400 font-semibold"><i class="fa-regular fa-calendar-days mr-1"></i>${log.dateFormatted || log.date}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button onclick="toggleEditHistory(${logIdx})" class="text-blue-400 hover:text-blue-300 text-xs font-semibold px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20">
+                    <i class="fa-solid fa-pen mr-1"></i> Edit
+                  </button>
+                  <button onclick="deleteLog('${log.docId || ''}', ${log.localIdx})" class="text-slate-500 hover:text-red-400 p-1">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="space-y-2 mt-2">
+                ${exercises.map(ex => `
+                  <div class="border-b border-slate-700/40 pb-1.5">
+                    <div class="font-bold text-slate-200">✅ ${ex.name}</div>
+                    <div class="flex flex-wrap gap-2 text-[11px] text-blue-400 mt-0.5">
+                      ${ex.setsData.map((s, i) => `<span>Set ${i+1}: <strong>${s.weight} lbs × ${s.reps} reps</strong></span>`).join(' • ')}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+      });
+      historyList.innerHTML = html;
     }
 
-    let html = '';
-    logs.forEach((log) => {
-        html += `
-        <div class="bg-slate-800 border border-slate-700 rounded-xl p-3.5 text-xs">
-            <div class="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
-            <div>
-                <span class="font-bold text-slate-100 block">${log.title}</span>
-                <span class="text-[10px] text-blue-400 font-semibold"><i class="fa-regular fa-calendar-days mr-1"></i>${log.dateFormatted || log.date}</span>
-            </div>
-            <button onclick="deleteLog('${log.docId || ''}')" class="text-slate-500 hover:text-red-400 p-1">
-                <i class="fa-solid fa-trash"></i>
-            </button>
-            </div>
-            <div class="space-y-2 mt-2">
-            ${(log.exercises || []).map(ex => `
-                <div class="border-b border-slate-700/40 pb-1.5">
-                <div class="font-bold text-slate-200">✅ ${ex.name}</div>
-                <div class="flex flex-wrap gap-2 text-[11px] text-blue-400 mt-0.5">
-                    ${(ex.setsData || []).map((s, i) => `<span>Set ${i+1}: <strong>${s.weight} lbs × ${s.reps}</strong></span>`).join(' • ')}
-                </div>
-                </div>
-            `).join('')}
-            </div>
-        </div>
-        `;
-    });
-    historyList.innerHTML = html;
-    }
+    // Toggle History Edit State
+    window.toggleEditHistory = (logIdx) => {
+      fetchedLogs[logIdx].isEditing = !fetchedLogs[logIdx].isEditing;
+      renderHistoryList();
+    };
 
-    // Delete History Log
-    window.deleteLog = async (id) => {
-      if (!confirm("Delete this log entry?")) return;
-      if (currentUser && id) {
-        await deleteDoc(doc(db, "users", currentUser.uid, "logs", id));
+    // Update History Entry Inputs
+    window.updateHistorySetVal = (logIdx, exIdx, setIdx, field, val) => {
+      fetchedLogs[logIdx].exercises[exIdx].setsData[setIdx][field] = parseFloat(val) || 0;
+    };
+
+    // Save Edited History Back to Firestore/LocalStorage
+    window.saveEditedLog = async (logIdx) => {
+      const log = fetchedLogs[logIdx];
+      log.isEditing = false;
+
+      if (currentUser && log.docId) {
+        try {
+          const docRef = doc(db, "users", currentUser.uid, "logs", log.docId);
+          await updateDoc(docRef, { exercises: log.exercises });
+          alert("Log updated successfully in cloud!");
+        } catch (e) { alert("Error saving log edit: " + e.message); }
       } else {
         const localLogs = JSON.parse(localStorage.getItem('ppl_logs') || '[]');
-        localLogs.splice(parseInt(id), 1);
+        localLogs[log.localIdx].exercises = log.exercises;
+        localStorage.setItem('ppl_logs', JSON.stringify(localLogs));
+        alert("Log updated locally!");
+      }
+      renderHistoryList();
+    };
+
+    // Delete Log Entry
+    window.deleteLog = async (docId, localIdx) => {
+      if (!confirm("Delete this log entry?")) return;
+      if (currentUser && docId) {
+        await deleteDoc(doc(db, "users", currentUser.uid, "logs", docId));
+      } else {
+        const localLogs = JSON.parse(localStorage.getItem('ppl_logs') || '[]');
+        localLogs.splice(localIdx, 1);
         localStorage.setItem('ppl_logs', JSON.stringify(localLogs));
       }
       loadHistory();
     };
 
-    // Timer Logic
+    // Timer Implementation
     window.startTimer = (seconds) => {
       clearInterval(timerInterval);
       let rem = seconds;
@@ -528,7 +592,7 @@
       document.getElementById('timer-display').innerText = `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
     }
 
-    // Auth State Observer
+    // Auth Observer
     onAuthStateChanged(auth, async (user) => {
       currentUser = user;
       const authStatus = document.getElementById('auth-status');
