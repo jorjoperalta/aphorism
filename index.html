@@ -632,23 +632,49 @@
       fetchedLogs[logIdx].exercises[exIdx].name = val;
     };
 
-    window.updateHistorySetVal = (logIdx, exIdx, setIdx, field, val) => {
-      fetchedLogs[logIdx].exercises[exIdx].setsData[setIdx][field] = parseFloat(val) || 0;
-    };
-
+    // Add Set to History Exercise
     window.addSetToHistoryEx = (logIdx, exIdx) => {
-      const sets = fetchedLogs[logIdx].exercises[exIdx].setsData;
-      const lastSet = sets[sets.length - 1] || { weight: 100, reps: 10 };
-      sets.push({ ...lastSet });
-      renderHistoryList();
+    const ex = fetchedLogs[logIdx].exercises[exIdx];
+    if (!ex.setsData) {
+        const fallbackWeight = ex.weight || 100;
+        ex.setsData = [
+        { weight: fallbackWeight, reps: 10 },
+        { weight: fallbackWeight, reps: 10 },
+        { weight: fallbackWeight, reps: 10 }
+        ];
+    }
+    const lastSet = ex.setsData[ex.setsData.length - 1] || { weight: 100, reps: 10 };
+    ex.setsData.push({ ...lastSet });
+    renderHistoryList();
     };
 
+    // Remove Set from History Exercise (Safely Handles Legacy Records)
     window.removeSetFromHistoryEx = (logIdx, exIdx) => {
-      const sets = fetchedLogs[logIdx].exercises[exIdx].setsData;
-      if (sets.length > 1) {
-        sets.pop();
-        renderHistoryList();
-      }
+    const ex = fetchedLogs[logIdx].exercises[exIdx];
+    if (!ex.setsData) {
+        const fallbackWeight = ex.weight || 100;
+        ex.setsData = [
+        { weight: fallbackWeight, reps: 10 },
+        { weight: fallbackWeight, reps: 10 }
+        ];
+    } else if (ex.setsData.length > 1) {
+        ex.setsData.pop();
+    }
+    renderHistoryList();
+    };
+
+    // Update History Set Values
+    window.updateHistorySetVal = (logIdx, exIdx, setIdx, field, val) => {
+    const ex = fetchedLogs[logIdx].exercises[exIdx];
+    if (!ex.setsData) {
+        const fallbackWeight = ex.weight || 100;
+        ex.setsData = [
+        { weight: fallbackWeight, reps: 10 },
+        { weight: fallbackWeight, reps: 10 },
+        { weight: fallbackWeight, reps: 10 }
+        ];
+    }
+    ex.setsData[setIdx][field] = parseFloat(val) || 0;
     };
 
     window.deleteExFromHistory = (logIdx, exIdx) => {
