@@ -15,7 +15,7 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
   .exercise-card.completed {
-    opacity: 0.4;
+    opacity: 0.45;
     filter: grayscale(80%);
     border-left-color: #64748b !important;
   }
@@ -25,7 +25,7 @@
   }
 </style>
 </head>
-<body class="min-h-screen pb-12">
+<body class="min-h-screen pb-16">
 
   <!-- Header & Nav -->
   <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-40 px-4 py-3 shadow-md">
@@ -81,15 +81,22 @@
 
     <!-- History Container -->
     <div id="history-container" class="hidden space-y-4">
-      <h2 class="text-lg font-bold text-slate-200 mb-2">Logged Workout History</h2>
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-lg font-bold text-slate-200">Logged Workout History</h2>
+        <span id="log-count" class="text-xs text-slate-400 font-medium">0 Sessions</span>
+      </div>
       <div id="history-list" class="space-y-3">
         <!-- Rendered History Items -->
       </div>
     </div>
 
-    <!-- Save Workout Floating Button -->
-    <div id="save-bar" class="mt-8 mb-12">
-      <button onclick="saveCurrentWorkout()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl text-center shadow-lg transition flex justify-center items-center gap-2">
+    <!-- Save Workout Section -->
+    <div id="save-bar" class="mt-8 mb-12 bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg space-y-3">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-700 pb-3">
+        <label class="text-xs font-bold text-slate-300 uppercase tracking-wide">Workout Date & Time:</label>
+        <input type="datetime-local" id="workout-datetime" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500">
+      </div>
+      <button onclick="saveCurrentWorkout()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-center shadow-lg transition flex justify-center items-center gap-2">
         <i class="fa-solid fa-floppy-disk"></i> Save Session Log
       </button>
     </div>
@@ -144,9 +151,9 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, getDocs, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Your Firebase configuration
+    // Your Firebase Configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBOoRAVHd0M-k_j49CqD9bbjKbMMfnY5LM",
       authDomain: "youcompetemeapp-b73f9.firebaseapp.com",
@@ -157,7 +164,7 @@
       measurementId: "G-ZD5GD1G4MQ"
     };
 
-    // Initialize Firebase
+    // Initialize Firebase Services
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -167,7 +174,7 @@
     let currentActiveDay = 'legs';
     let timerInterval = null;
 
-    // Workout Exercises Data Structure
+    // Workout Exercises Master Definition
     const workoutData = {
       legs: {
         title: "🔵 Day 1: Legs / Lower Body",
@@ -205,7 +212,14 @@
       }
     };
 
-    // Global Functions Attached to Window
+    // Helper: Set input datetime-local value to local now
+    function setDefaultDateTime() {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      document.getElementById('workout-datetime').value = now.toISOString().slice(0, 16);
+    }
+
+    // Modal Operations
     window.openAuthModal = () => document.getElementById('auth-modal').classList.remove('hidden');
     window.closeAuthModal = () => document.getElementById('auth-modal').classList.add('hidden');
 
@@ -236,7 +250,7 @@
 
     window.logOut = () => signOut(auth);
 
-    // Render Active Day
+    // Switch Active Tab
     window.setDay = (day) => {
       currentActiveDay = day;
       document.querySelectorAll('.day-btn').forEach(btn => {
@@ -265,8 +279,8 @@
       }
     };
 
-    // Render Workout Day
-    function renderWorkout(day) {
+    // Render Workout Day Card List
+    async function renderWorkout(day) {
       const container = document.getElementById('workout-container');
       const data = workoutData[day];
       
@@ -305,7 +319,7 @@
       container.innerHTML = html;
     }
 
-    // Toggle Done
+    // Toggle Done Gray-out
     window.toggleDone = (id) => {
       const current = localStorage.getItem(`done_${id}`) === 'true';
       localStorage.setItem(`done_${id}`, !current);
@@ -315,20 +329,33 @@
       }
     };
 
-    // Update Weight
-    window.updateWeight = (id, val) => {
+    // Update Weight Locally and Cloud
+    window.updateWeight = async (id, val) => {
       localStorage.setItem(`weight_${id}`, val);
+      if (currentUser) {
+        try {
+          await setDoc(doc(db, "users", currentUser.uid), {
+            weights: { [id]: val }
+          }, { merge: true });
+        } catch (e) {
+          console.error("Cloud weight sync error:", e);
+        }
+      }
     };
 
-    // Save Workout Session to Cloud or Local
+    // Save Workout Session with Date/Time Input
     window.saveCurrentWorkout = async () => {
       const day = currentActiveDay;
       const data = workoutData[day];
+      
+      const customDateTimeVal = document.getElementById('workout-datetime').value;
+      const sessionDate = customDateTimeVal ? new Date(customDateTimeVal) : new Date();
+
       const logItem = {
         day: day,
         title: data.title,
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        timestamp: Date.now(),
+        dateFormatted: sessionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        timestamp: sessionDate.getTime(),
         exercises: data.exercises.map(ex => ({
           name: ex.name,
           weight: localStorage.getItem(`weight_${ex.id}`) || ex.defaultWeight,
@@ -339,25 +366,27 @@
       if (currentUser) {
         try {
           await addDoc(collection(db, "users", currentUser.uid, "logs"), logItem);
-          alert("Workout logged successfully to Cloud!");
+          alert(`Session saved to cloud for ${logItem.dateFormatted}!`);
         } catch (e) {
-          alert("Error saving to cloud: " + e.message);
+          alert("Cloud save error: " + e.message);
         }
       } else {
         const localLogs = JSON.parse(localStorage.getItem('ppl_logs') || '[]');
         localLogs.unshift(logItem);
         localStorage.setItem('ppl_logs', JSON.stringify(localLogs));
-        alert("Workout saved to local history!");
+        alert(`Session saved locally for ${logItem.dateFormatted}!`);
       }
 
-      // Reset done toggles
+      // Reset done states & reset input time
       data.exercises.forEach(ex => localStorage.removeItem(`done_${ex.id}`));
+      setDefaultDateTime();
       renderWorkout(day);
     };
 
-    // Load History
+    // Load History Log Items
     async function loadHistory() {
       const historyList = document.getElementById('history-list');
+      const countLabel = document.getElementById('log-count');
       historyList.innerHTML = `<p class="text-xs text-slate-400">Loading history...</p>`;
 
       let logs = [];
@@ -365,31 +394,42 @@
         try {
           const q = query(collection(db, "users", currentUser.uid, "logs"), orderBy("timestamp", "desc"));
           const snapshot = await getDocs(q);
-          snapshot.forEach(doc => logs.push(doc.data()));
+          snapshot.forEach(docSnap => {
+            logs.push({ docId: docSnap.id, ...docSnap.data() });
+          });
         } catch (e) {
-          console.error(e);
+          console.error("Cloud load history error:", e);
         }
       } else {
         logs = JSON.parse(localStorage.getItem('ppl_logs') || '[]');
       }
 
+      countLabel.innerText = `${logs.length} Sessions Logged`;
+
       if (logs.length === 0) {
-        historyList.innerHTML = `<div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center text-xs text-slate-400">No saved sessions found.</div>`;
+        historyList.innerHTML = `<div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center text-xs text-slate-400">No workout history logged yet. Complete a session and click "Save Session Log".</div>`;
         return;
       }
 
       let html = '';
-      logs.forEach(log => {
+      logs.forEach((log, idx) => {
         html += `
           <div class="bg-slate-800 border border-slate-700 rounded-xl p-3.5 text-xs">
             <div class="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
-              <span class="font-bold text-slate-200">${log.title}</span>
-              <span class="text-[10px] text-slate-400">${log.date}</span>
+              <div>
+                <span class="font-bold text-slate-100 block">${log.title}</span>
+                <span class="text-[10px] text-blue-400 font-semibold"><i class="fa-regular fa-calendar-days mr-1"></i>${log.dateFormatted || log.date}</span>
+              </div>
+              <button onclick="deleteLog('${log.docId || idx}')" class="text-slate-500 hover:text-red-400 p-1">
+                <i class="fa-solid fa-trash"></i>
+              </button>
             </div>
-            <div class="space-y-1">
+            <div class="space-y-1 mt-2">
               ${log.exercises.map(ex => `
                 <div class="flex justify-between text-slate-300">
-                  <span class="${ex.completed ? 'line-through text-slate-500' : ''}">${ex.name}</span>
+                  <span class="${ex.completed ? 'text-slate-100 font-medium' : 'line-through text-slate-500'}">
+                    ${ex.completed ? '✅' : '❌'} ${ex.name}
+                  </span>
                   <span class="font-bold text-blue-400">${ex.weight} lbs</span>
                 </div>
               `).join('')}
@@ -400,7 +440,25 @@
       historyList.innerHTML = html;
     }
 
-    // Timer Logic
+    // Delete Log Entry
+    window.deleteLog = async (id) => {
+      if (!confirm("Are you sure you want to delete this workout entry?")) return;
+
+      if (currentUser) {
+        try {
+          await deleteDoc(doc(db, "users", currentUser.uid, "logs", id));
+        } catch (e) {
+          console.error("Delete log error:", e);
+        }
+      } else {
+        const localLogs = JSON.parse(localStorage.getItem('ppl_logs') || '[]');
+        localLogs.splice(parseInt(id), 1);
+        localStorage.setItem('ppl_logs', JSON.stringify(localLogs));
+      }
+      loadHistory();
+    };
+
+    // Timer Implementation
     window.startTimer = (seconds) => {
       clearInterval(timerInterval);
       let rem = seconds;
@@ -428,15 +486,27 @@
       document.getElementById('timer-display').innerText = `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
     }
 
-    // Auth Observer
-    onAuthStateChanged(auth, (user) => {
+    // Auth State Observer
+    onAuthStateChanged(auth, async (user) => {
       currentUser = user;
       const authStatus = document.getElementById('auth-status');
       if (user) {
         authStatus.innerHTML = `
-          <span class="text-xs text-slate-300 font-medium truncate max-w-[120px]">${user.email || 'Google User'}</span>
-          <button onclick="logOut()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1 rounded-lg">Log Out</button>
+          <div class="flex items-center gap-2">
+            <span class="hidden sm:inline text-xs text-slate-300 font-medium truncate max-w-[120px]">${user.email || 'Google User'}</span>
+            <button onclick="logOut()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg transition">
+              Log Out
+            </button>
+          </div>
         `;
+        // Load cloud weight presets for this user
+        try {
+          const userSnap = await getDoc(doc(db, "users", user.uid));
+          if (userSnap.exists() && userSnap.data().weights) {
+            const weights = userSnap.data().weights;
+            Object.keys(weights).forEach(k => localStorage.setItem(`weight_${k}`, weights[k]));
+          }
+        } catch (e) { console.error(e); }
       } else {
         authStatus.innerHTML = `
           <button id="btn-open-auth" onclick="openAuthModal()" class="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold px-3 py-1.5 rounded-lg transition">
@@ -444,10 +514,11 @@
           </button>
         `;
       }
+      renderWorkout(currentActiveDay);
     });
 
-    // Initial Load
-    renderWorkout('legs');
+    // Initialize Default Datetime
+    setDefaultDateTime();
   </script>
 </body>
 </html>
