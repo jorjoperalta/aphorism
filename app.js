@@ -92,6 +92,8 @@ window.showHomeView = () => {
 window.setDay = async (day) => {
   currentActiveDay = day;
   document.getElementById('home-container').classList.add('hidden');
+  
+  // Keep top navigation tabs bar visible on all views including Trends
   document.getElementById('nav-tabs-bar').classList.remove('hidden');
 
   document.querySelectorAll('.day-btn').forEach(btn => {
@@ -144,25 +146,53 @@ window.setDay = async (day) => {
 };
 
 async function initRoutineForDay(day) {
-  document.getElementById('routine-title').innerText = defaultTemplates[day].title;
-  let templateExercises = defaultTemplates[day].exercises;
+  document.getElementById('routine-title').innerText = defaultTemplates[day] ? defaultTemplates[day].title : "Workout Session";
+  let templateExercises = defaultTemplates[day] ? defaultTemplates[day].exercises : [];
 
+  // 1. Fetch Master Template
   if (currentUser) {
     try {
       const userDoc = await getDoc(doc(db, "users", currentUser.uid));
       if (userDoc.exists() && userDoc.data().templates && userDoc.data().templates[day]) {
         templateExercises = userDoc.data().templates[day];
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Template fetch error:", e); }
   } else {
     const localTpl = localStorage.getItem(`template_${day}`);
     if (localTpl) templateExercises = JSON.parse(localTpl);
   }
 
-  activeSessionExercises = JSON.parse(JSON.stringify(templateExercises)).map(ex => ({
-    ...ex,
-    completed: false
-  }));
+  // 2. Fetch Most Recent Logged Workout for this Day to Auto-Fill Last Weights & Reps
+  let lastLoggedSession = null;
+  const allLogs = await fetchAllLogs();
+  const dayLogs = allLogs.filter(l => l.day === day);
+  if (dayLogs.length > 0) {
+    lastLoggedSession = dayLogs[0]; // Most recent session based on timestamp sort
+  }
+
+  // 3. Populate Active Exercises with Last Logged Sets (falling back to template defaults)
+  activeSessionExercises = JSON.parse(JSON.stringify(templateExercises)).map(ex => {
+    let setsData = ex.setsData;
+    
+    if (lastLoggedSession && lastLoggedSession.exercises) {
+      // Find matching exercise in past log by name (stripping numerical prefixes if needed)
+      const pastEx = lastLoggedSession.exercises.find(e => {
+        const cleanPast = e.name ? e.name.replace(/^\d+\.\s*/, '').trim().toLowerCase() : '';
+        const cleanCurrent = ex.name ? ex.name.replace(/^\d+\.\s*/, '').trim().toLowerCase() : '';
+        return cleanPast === cleanCurrent;
+      });
+
+      if (pastEx && pastEx.setsData && pastEx.setsData.length > 0) {
+        setsData = JSON.parse(JSON.stringify(pastEx.setsData));
+      }
+    }
+
+    return {
+      ...ex,
+      setsData: setsData,
+      completed: false
+    };
+  });
 
   renderSessionView();
 }
