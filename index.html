@@ -1,36 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PPL Gym Tracker — aphorism.io</title>
-<!-- Tailwind CSS CDN -->
-<script src="https://cdn.tailwindcss.com"></script>
-<!-- FontAwesome Icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<!-- Chart.js CDN for Trends & Progression Charts -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-  body {
-    background-color: #0f172a;
-    color: #f8fafc;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  }
-  .exercise-card.completed {
-    border-left-color: #10b981 !important;
-    background-color: #1e293b;
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>aphorism.io — Fitness & PPL Tracker</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="min-h-screen pb-20">
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased pb-24">
 
-  <!-- Header & Nav -->
-  <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-40 px-4 py-3 shadow-md">
-    <div class="max-w-3xl mx-auto flex justify-between items-center">
-      <button onclick="showHomeView()" class="flex items-center gap-2 text-left focus:outline-none">
-        <i class="fa-solid fa-dumbbell text-blue-500 text-xl"></i>
-        <h1 class="font-bold text-lg text-slate-100">PPL Tracker</h1>
+  <!-- TOP HEADER / BRANDING BAR -->
+  <header class="bg-slate-950/80 backdrop-blur border-b border-slate-800 sticky top-0 z-40 px-4 py-3">
+    <div class="max-w-xl mx-auto flex justify-between items-center">
+      <button onclick="showHomeView()" class="flex items-center gap-2 hover:opacity-80 transition text-left">
+        <div class="bg-blue-600 text-white font-black rounded-lg w-8 h-8 flex items-center justify-center text-sm shadow-lg shadow-blue-500/30">
+          A
+        </div>
+        <div>
+          <h1 class="font-bold text-sm tracking-wide text-slate-100 leading-tight">aphorism.io</h1>
+          <p class="text-[10px] text-slate-400 font-medium">Push / Pull / Legs Tracker</p>
+        </div>
       </button>
+
+      <!-- Auth User Status -->
       <div id="auth-status" class="flex items-center gap-2">
         <button id="btn-open-auth" onclick="openAuthModal()" class="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold px-3 py-1.5 rounded-lg transition">
           <i class="fa-solid fa-right-to-bracket mr-1"></i> Log In / Sign Up
@@ -39,195 +38,175 @@
     </div>
   </header>
 
-  <main class="max-w-3xl mx-auto px-4 pt-4">
-
-    <!-- Day Selector Buttons -->
-    <div id="nav-tabs-bar" class="hidden grid grid-cols-5 gap-1.5 mb-4">
-      <button onclick="setDay('legs')" id="btn-day-legs" class="day-btn py-2.5 rounded-xl font-bold text-xs bg-blue-600 text-white shadow-lg transition">
-        🔵 Legs
+  <!-- NAVIGATION TABS BAR -->
+  <nav id="nav-tabs-bar" class="bg-slate-900/90 border-b border-slate-800 px-4 py-2 sticky top-[57px] z-30 hidden">
+    <div class="max-w-xl mx-auto grid grid-cols-5 gap-1.5 text-xs font-bold">
+      <button id="btn-day-legs" onclick="setDay('legs')" class="day-btn py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex flex-col items-center gap-0.5">
+        <span>🔵 Legs</span>
       </button>
-      <button onclick="setDay('push')" id="btn-day-push" class="day-btn py-2.5 rounded-xl font-bold text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
-        🔴 Push
+      <button id="btn-day-push" onclick="setDay('push')" class="day-btn py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex flex-col items-center gap-0.5">
+        <span>🔴 Push</span>
       </button>
-      <button onclick="setDay('pull')" id="btn-day-pull" class="day-btn py-2.5 rounded-xl font-bold text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
-        🟢 Pull
+      <button id="btn-day-pull" onclick="setDay('pull')" class="day-btn py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex flex-col items-center gap-0.5">
+        <span>🟢 Pull</span>
       </button>
-      <button onclick="setDay('history')" id="btn-day-history" class="day-btn py-2.5 rounded-xl font-bold text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
-        📜 History
+      <button id="btn-day-history" onclick="setDay('history')" class="day-btn py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex flex-col items-center gap-0.5">
+        <span>📜 History</span>
       </button>
-      <button onclick="setDay('analytics')" id="btn-day-analytics" class="day-btn py-2.5 rounded-xl font-bold text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
-        📈 Trends
+      <button id="btn-day-analytics" onclick="setDay('analytics')" class="day-btn py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex flex-col items-center gap-0.5">
+        <span>📈 Trends</span>
       </button>
     </div>
+  </nav>
 
-    <!-- Rest Timer Widget -->
-    <div id="rest-timer-widget" class="hidden bg-slate-800 border border-slate-700 rounded-xl p-3 mb-6 flex justify-between items-center shadow">
-      <div class="flex items-center gap-2">
-        <i class="fa-regular fa-clock text-amber-400"></i>
-        <span class="text-xs font-semibold text-slate-300">Rest Timer:</span>
-        <span id="timer-display" class="font-mono text-base font-bold text-amber-400">00:00</span>
-      </div>
-      <div class="flex gap-1.5">
-        <button onclick="startTimer(120)" class="bg-slate-700 hover:bg-slate-600 text-xs text-slate-200 px-2.5 py-1 rounded font-semibold">2m</button>
-        <button onclick="startTimer(180)" class="bg-slate-700 hover:bg-slate-600 text-xs text-slate-200 px-2.5 py-1 rounded font-semibold">3m</button>
-        <button onclick="resetTimer()" class="bg-red-900/40 hover:bg-red-900/60 text-xs text-red-300 px-2.5 py-1 rounded font-semibold">Stop</button>
-      </div>
-    </div>
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-xl mx-auto px-4 pt-4 space-y-4">
 
-    <!-- LANDING HOME VIEW -->
-    <div id="home-container" class="space-y-6">
-      <div class="bg-gradient-to-r from-slate-800 via-slate-800/90 to-blue-950/40 border border-slate-700 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+    <!-- 1. LANDING / HOME DASHBOARD VIEW -->
+    <section id="home-container" class="space-y-4">
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl relative overflow-hidden">
         <div class="relative z-10 space-y-3">
-          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold">
-            <i class="fa-solid fa-fire"></i> Progressive Overload System
-          </div>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-white">Ready for your session?</h2>
-          <p class="text-xs sm:text-sm text-slate-300 max-w-md">Track sets, working weights, and historical logs automatically synced across your devices.</p>
-          <div class="pt-2 flex flex-wrap gap-2">
-            <button onclick="setDay('legs')" class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm px-5 py-3 rounded-xl shadow-lg transition flex items-center gap-2">
-              <i class="fa-solid fa-play text-xs"></i> Start Workout
-            </button>
-            <button onclick="setDay('analytics')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-sm px-5 py-3 rounded-xl transition flex items-center gap-2">
-              <i class="fa-solid fa-chart-line text-amber-400"></i> View Trends
+          <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+            5-Day Hybrid Split
+          </span>
+          <h2 class="text-xl font-extrabold text-white">Ready for your workout?</h2>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Track working sets, e1RM progression, and volume trends for your bench press and main lifts.
+          </p>
+          <div class="pt-2">
+            <button onclick="setDay('push')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-blue-600/30 flex justify-center items-center gap-2">
+              <i class="fa-solid fa-play"></i> Start Workout
             </button>
           </div>
         </div>
       </div>
 
-      <div>
-        <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3">Select Training Split</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div onclick="setDay('legs')" class="bg-slate-800 hover:bg-slate-700/80 border border-slate-700 hover:border-blue-500/50 rounded-xl p-4 cursor-pointer transition shadow-sm space-y-1">
-            <div class="flex justify-between items-center">
-              <span class="font-bold text-slate-100 text-sm">🔵 Legs</span>
-              <i class="fa-solid fa-chevron-right text-xs text-slate-500"></i>
-            </div>
-            <p class="text-[11px] text-slate-400">Quads, Hamstrings & Glutes</p>
-          </div>
-
-          <div onclick="setDay('push')" class="bg-slate-800 hover:bg-slate-700/80 border border-slate-700 hover:border-red-500/50 rounded-xl p-4 cursor-pointer transition shadow-sm space-y-1">
-            <div class="flex justify-between items-center">
-              <span class="font-bold text-slate-100 text-sm">🔴 Push</span>
-              <i class="fa-solid fa-chevron-right text-xs text-slate-500"></i>
-            </div>
-            <p class="text-[11px] text-slate-400">Chest, Shoulders & Triceps</p>
-          </div>
-
-          <div onclick="setDay('pull')" class="bg-slate-800 hover:bg-slate-700/80 border border-slate-700 hover:border-emerald-500/50 rounded-xl p-4 cursor-pointer transition shadow-sm space-y-1">
-            <div class="flex justify-between items-center">
-              <span class="font-bold text-slate-100 text-sm">🟢 Pull</span>
-              <i class="fa-solid fa-chevron-right text-xs text-slate-500"></i>
-            </div>
-            <p class="text-[11px] text-slate-400">Back, Biceps & Rear Delts</p>
-          </div>
+      <!-- Quick Metrics Summary -->
+      <div class="grid grid-cols-2 gap-3 text-center">
+        <div class="bg-slate-800/80 border border-slate-700/80 p-3.5 rounded-xl space-y-1">
+          <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Workouts Logged</span>
+          <p id="home-total-logs" class="text-xl font-black text-blue-400">0</p>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700/80 p-3.5 rounded-xl space-y-1">
+          <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Last Recorded Session</span>
+          <p id="home-last-date" class="text-xs font-bold text-slate-200 truncate pt-1">None</p>
         </div>
       </div>
+    </section>
 
-      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 grid grid-cols-2 gap-4 text-center">
-        <div class="border-r border-slate-700/80">
-          <span id="home-total-logs" class="text-xl font-bold text-blue-400 block">--</span>
-          <span class="text-[11px] text-slate-400 uppercase font-semibold">Total Sessions</span>
+    <!-- REST TIMER WIDGET -->
+    <div id="rest-timer-widget" class="hidden bg-slate-800 border border-slate-700 rounded-xl p-3 flex justify-between items-center shadow-md">
+      <div class="flex items-center gap-2">
+        <div class="bg-blue-600/20 text-blue-400 rounded-lg p-2 text-xs">
+          <i class="fa-solid fa-stopwatch"></i>
         </div>
         <div>
-          <span id="home-last-date" class="text-xs font-bold text-slate-200 block truncate px-2">--</span>
-          <span class="text-[11px] text-slate-400 uppercase font-semibold">Last Session Logged</span>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block">Rest Timer</span>
+          <span id="timer-display" class="font-mono text-base font-bold text-white">00:00</span>
         </div>
       </div>
+      <div class="flex gap-1.5">
+        <button onclick="startTimer(90)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg">90s</button>
+        <button onclick="startTimer(120)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg">2m</button>
+        <button onclick="startTimer(180)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg">3m</button>
+        <button onclick="resetTimer()" class="bg-slate-800 hover:bg-slate-700 text-red-400 text-[11px] font-semibold px-2 py-1 rounded-lg border border-slate-700">
+          <i class="fa-solid fa-rotate-left"></i>
+        </button>
+      </div>
     </div>
 
-    <!-- Active Routine Header Bar -->
-    <div id="routine-header-bar" class="hidden flex justify-between items-center mb-3">
-      <h2 id="routine-title" class="text-base font-bold text-slate-200"></h2>
-      <button onclick="openTemplateModal()" class="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1">
-        <i class="fa-solid fa-pen-to-square"></i> Edit Master Template
+    <!-- ROUTINE HEADER BAR -->
+    <div id="routine-header-bar" class="hidden bg-slate-800 border border-slate-700 rounded-xl p-3 flex justify-between items-center">
+      <div>
+        <h2 id="routine-title" class="font-bold text-sm text-slate-100">Workout Session</h2>
+        <div class="flex items-center gap-1.5 mt-0.5">
+          <i class="fa-regular fa-clock text-[10px] text-slate-400"></i>
+          <input type="datetime-local" id="workout-datetime" class="bg-slate-900 border border-slate-700/80 rounded px-1.5 py-0.5 text-[10px] text-slate-300 font-medium focus:outline-none focus:border-blue-500">
+        </div>
+      </div>
+      <button onclick="openTemplateModal()" class="text-xs bg-slate-700 hover:bg-slate-600 text-blue-400 font-semibold px-2.5 py-1.5 rounded-lg border border-slate-600 transition">
+        <i class="fa-solid fa-pen-to-square mr-1"></i> Edit Master
       </button>
     </div>
 
-    <!-- Workout Container -->
-    <div id="workout-container" class="hidden space-y-4"></div>
+    <!-- ACTIVE WORKOUT SESSION VIEW -->
+    <section id="workout-container" class="hidden space-y-3">
+      <!-- Dynamic Exercises Injected Here -->
+    </section>
 
-    <!-- History Container -->
-    <div id="history-container" class="hidden space-y-4">
-      <div class="flex justify-between items-center mb-2">
-        <h2 class="text-lg font-bold text-slate-200">Logged Workout History</h2>
-        <span id="log-count" class="text-xs text-slate-400 font-medium">0 Sessions</span>
+    <!-- SAVE WORKOUT FLOATING BAR -->
+    <div id="save-bar" class="hidden fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur border-t border-slate-800 p-3 z-30">
+      <div class="max-w-xl mx-auto flex gap-2">
+        <button onclick="saveCurrentWorkout()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20 flex justify-center items-center gap-1.5">
+          <i class="fa-solid fa-floppy-disk"></i> Log Completed Session
+        </button>
       </div>
-      <div id="history-list" class="space-y-3"></div>
     </div>
 
-    <!-- Trends & Analytics Container -->
-    <div id="analytics-container" class="hidden space-y-5"></div>
-
-    <!-- Save Workout Section -->
-    <div id="save-bar" class="hidden mt-8 mb-12 bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg space-y-3">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-700 pb-3">
-        <label class="text-xs font-bold text-slate-300 uppercase tracking-wide">Workout Date & Time:</label>
-        <input type="datetime-local" id="workout-datetime" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500">
+    <!-- HISTORY LOGS VIEW -->
+    <section id="history-container" class="hidden space-y-3">
+      <div class="flex justify-between items-center px-1">
+        <h2 class="text-sm font-bold text-slate-200">Past Workout Sessions</h2>
+        <span id="log-count" class="text-xs text-slate-400 font-medium">0 Logged</span>
       </div>
-      <button onclick="saveCurrentWorkout()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-center shadow-lg transition flex justify-center items-center gap-2">
-        <i class="fa-solid fa-floppy-disk"></i> Save Session Log
-      </button>
-    </div>
+      <div id="history-list" class="space-y-3">
+        <!-- History Cards Injected Here -->
+      </div>
+    </section>
+
+    <!-- TRENDS & ANALYTICS VIEW -->
+    <section id="analytics-container" class="hidden space-y-4">
+      <!-- Analytics Summary & Chart Injected via analytics.js -->
+    </section>
 
   </main>
 
-  <!-- Auth Modal -->
-  <div id="auth-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden px-4">
-    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-sm relative shadow-2xl">
-      <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-      <h3 class="text-xl font-bold text-center mb-1 text-slate-100">Account Sync</h3>
-      <p class="text-xs text-slate-400 text-center mb-6">Log in to sync workout logs across devices</p>
-      <button onclick="loginWithGoogle()" class="w-full bg-white hover:bg-slate-100 text-slate-800 font-semibold py-2.5 rounded-xl shadow transition flex justify-center items-center gap-3 mb-4 text-sm">
-        <svg class="w-4 h-4" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-        </svg>
-        Sign in with Google
-      </button>
-      <div class="flex items-center my-4">
-        <div class="flex-grow border-t border-slate-700"></div>
-        <span class="px-3 text-xs text-slate-500 uppercase">Or Email</span>
-        <div class="flex-grow border-t border-slate-700"></div>
+  <!-- MODAL 1: AUTHENTICATION (Cloud Login/Sign Up) -->
+  <div id="auth-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl relative">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-sm text-slate-100">Account Login / Sync</h3>
+        <button onclick="closeAuthModal()" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="space-y-3">
-        <div>
-          <label class="text-xs text-slate-400 font-medium">Email</label>
-          <input type="email" id="auth-email" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
-        </div>
-        <div>
-          <label class="text-xs text-slate-400 font-medium">Password</label>
-          <input type="password" id="auth-password" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
-        </div>
-        <div class="flex gap-2 pt-2">
-          <button onclick="loginWithEmail()" class="w-1/2 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 rounded-lg text-sm transition">Log In</button>
-          <button onclick="signUpWithEmail()" class="w-1/2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 rounded-lg text-sm transition">Sign Up</button>
+        <button onclick="loginWithGoogle()" class="w-full bg-white hover:bg-slate-100 text-slate-900 font-bold py-2 rounded-xl text-xs transition flex justify-center items-center gap-2">
+          <i class="fa-brands fa-google"></i> Continue with Google
+        </button>
+        <div class="text-center text-[10px] text-slate-500 uppercase font-bold tracking-wider">or email</div>
+        <input type="email" id="auth-email" placeholder="Email Address" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500">
+        <input type="password" id="auth-password" placeholder="Password" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500">
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button onclick="loginWithEmail()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl text-xs transition">Log In</button>
+          <button onclick="signUpWithEmail()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2 rounded-xl text-xs transition">Sign Up</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Master Template Editor Modal -->
-  <div id="template-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden px-4">
-    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 w-full max-w-lg relative shadow-2xl max-h-[90vh] flex flex-col">
-      <div class="flex justify-between items-center border-b border-slate-700 pb-3 mb-3">
-        <h3 class="text-base font-bold text-slate-100">Edit Master Routine Template</h3>
-        <button onclick="closeTemplateModal()" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark text-lg"></i>
+  <!-- MODAL 2: MASTER TEMPLATE EDITOR -->
+  <div id="template-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl relative max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-sm text-slate-100">Edit Master Routine Template</h3>
+        <button onclick="closeTemplateModal()" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      
+      <div id="template-editor-list" class="space-y-3 overflow-y-auto pr-1 flex-1">
+        <!-- Template Exercises Injected Here -->
+      </div>
+
+      <div class="pt-2 border-t border-slate-700 space-y-2">
+        <button onclick="addNewExerciseToTemplate()" class="w-full bg-slate-900 hover:bg-slate-700 border border-dashed border-slate-600 text-blue-400 font-bold py-2 rounded-xl text-xs transition">
+          + Add Exercise To Template
+        </button>
+        <button onclick="saveMasterTemplate()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs transition">
+          Save Master Template Changes
         </button>
       </div>
-      <div id="template-editor-list" class="space-y-3 overflow-y-auto pr-1 flex-1"></div>
-      <div class="pt-3 border-t border-slate-700 flex justify-between items-center mt-3">
-        <button onclick="addNewExerciseToTemplate()" class="text-xs bg-slate-700 hover:bg-slate-600 text-blue-400 font-bold px-3 py-2 rounded-lg">+ Add Exercise</button>
-        <button onclick="saveMasterTemplate()" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg">Save Master Routine</button>
-      </div>
     </div>
   </div>
 
-  <!-- Main JavaScript ES Module -->
+  <!-- ES MODULE APP ENTRY -->
   <script type="module" src="./app.js"></script>
 </body>
 </html>

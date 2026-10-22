@@ -14,39 +14,42 @@ let masterTemplateBuffer = [];
 
 window.fetchedLogs = [];
 
+// Equipment Library Reference Map
+const equipmentOptions = ["Barbell", "Dumbbell", "Machine", "Cable", "Bodyweight", "Other"];
+
 const defaultTemplates = {
   legs: {
     title: "🔵 Legs / Lower Body",
     accent: "border-blue-500",
     exercises: [
-      { id: "leg_1", name: "Hack Squat / Barbell Squat", target: "Quads & Glutes", setsCount: 3, rest: "3 min", setsData: [{ weight: 185, reps: 8 }, { weight: 185, reps: 8 }, { weight: 185, reps: 8 }] },
-      { id: "leg_2", name: "Romanian Deadlifts (RDLs)", target: "Hamstrings & Glutes", setsCount: 3, rest: "3 min", setsData: [{ weight: 155, reps: 10 }, { weight: 155, reps: 10 }, { weight: 155, reps: 10 }] },
-      { id: "leg_3", name: "Leg Extensions", target: "Isolated Quads", setsCount: 3, rest: "2 min", setsData: [{ weight: 110, reps: 12 }, { weight: 110, reps: 12 }, { weight: 110, reps: 12 }] },
-      { id: "leg_4", name: "Seated or Lying Leg Curls", target: "Isolated Hamstrings", setsCount: 3, rest: "2 min", setsData: [{ weight: 90, reps: 12 }, { weight: 90, reps: 12 }, { weight: 90, reps: 12 }] },
-      { id: "leg_5", name: "Hip Adductor / Abductor Machine", target: "Inner/Outer Thighs", setsCount: 3, rest: "2 min", setsData: [{ weight: 120, reps: 15 }, { weight: 120, reps: 15 }, { weight: 120, reps: 15 }] }
+      { id: "leg_1", equipment: "Machine", name: "Hack Squat / Barbell Squat", target: "Quads & Glutes", setsCount: 3, rest: "3 min", setsData: [{ weight: 185, reps: 8 }, { weight: 185, reps: 8 }, { weight: 185, reps: 8 }] },
+      { id: "leg_2", equipment: "Barbell", name: "Romanian Deadlifts (RDLs)", target: "Hamstrings & Glutes", setsCount: 3, rest: "3 min", setsData: [{ weight: 155, reps: 10 }, { weight: 155, reps: 10 }, { weight: 155, reps: 10 }] },
+      { id: "leg_3", equipment: "Machine", name: "Leg Extensions", target: "Isolated Quads", setsCount: 3, rest: "2 min", setsData: [{ weight: 110, reps: 12 }, { weight: 110, reps: 12 }, { weight: 110, reps: 12 }] },
+      { id: "leg_4", equipment: "Machine", name: "Seated or Lying Leg Curls", target: "Isolated Hamstrings", setsCount: 3, rest: "2 min", setsData: [{ weight: 90, reps: 12 }, { weight: 90, reps: 12 }, { weight: 90, reps: 12 }] },
+      { id: "leg_5", equipment: "Machine", name: "Hip Adductor / Abductor Machine", target: "Inner/Outer Thighs", setsCount: 3, rest: "2 min", setsData: [{ weight: 120, reps: 15 }, { weight: 120, reps: 15 }, { weight: 120, reps: 15 }] }
     ]
   },
   push: {
     title: "🔴 Push (Chest, Shoulders, Triceps)",
     accent: "border-red-500",
     exercises: [
-      { id: "push_1", name: "Flat Barbell Bench Press", target: "Chest & Triceps", setsCount: 3, rest: "3 min", setsData: [{ weight: 175, reps: 8 }, { weight: 175, reps: 8 }, { weight: 175, reps: 8 }] },
-      { id: "push_2", name: "Standing Overhead Press (OHP)", target: "Front Delts & Core", setsCount: 3, rest: "3 min", setsData: [{ weight: 105, reps: 8 }, { weight: 105, reps: 8 }, { weight: 105, reps: 8 }] },
-      { id: "push_3", name: "Incline Dumbbell Press", target: "Upper Chest", setsCount: 3, rest: "2.5 min", setsData: [{ weight: 60, reps: 10 }, { weight: 60, reps: 10 }, { weight: 60, reps: 10 }] },
-      { id: "push_4", name: "Cable or DB Chest Flys", target: "Chest Isolation", setsCount: 3, rest: "2 min", setsData: [{ weight: 35, reps: 12 }, { weight: 35, reps: 12 }, { weight: 35, reps: 12 }] },
-      { id: "push_5", name: "Lateral Raises", target: "Side Delts", setsCount: 3, rest: "2 min", setsData: [{ weight: 25, reps: 15 }, { weight: 25, reps: 15 }, { weight: 25, reps: 15 }] },
-      { id: "push_6", name: "Tricep Rope Pushdowns", target: "Tricep Isolation", setsCount: 3, rest: "2 min", setsData: [{ weight: 55, reps: 12 }, { weight: 55, reps: 12 }, { weight: 55, reps: 12 }] }
+      { id: "push_1", equipment: "Barbell", name: "Flat Barbell Bench Press", target: "Chest & Triceps", setsCount: 3, rest: "3 min", setsData: [{ weight: 175, reps: 8 }, { weight: 175, reps: 8 }, { weight: 175, reps: 8 }] },
+      { id: "push_2", equipment: "Barbell", name: "Standing Overhead Press (OHP)", target: "Front Delts & Core", setsCount: 3, rest: "3 min", setsData: [{ weight: 105, reps: 8 }, { weight: 105, reps: 8 }, { weight: 105, reps: 8 }] },
+      { id: "push_3", equipment: "Dumbbell", name: "Incline Dumbbell Press", target: "Upper Chest", setsCount: 3, rest: "2.5 min", setsData: [{ weight: 60, reps: 10 }, { weight: 60, reps: 10 }, { weight: 60, reps: 10 }] },
+      { id: "push_4", equipment: "Cable", name: "Cable or DB Chest Flys", target: "Chest Isolation", setsCount: 3, rest: "2 min", setsData: [{ weight: 35, reps: 12 }, { weight: 35, reps: 12 }, { weight: 35, reps: 12 }] },
+      { id: "push_5", equipment: "Dumbbell", name: "Lateral Raises", target: "Side Delts", setsCount: 3, rest: "2 min", setsData: [{ weight: 25, reps: 15 }, { weight: 25, reps: 15 }, { weight: 25, reps: 15 }] },
+      { id: "push_6", equipment: "Cable", name: "Tricep Rope Pushdowns", target: "Tricep Isolation", setsCount: 3, rest: "2 min", setsData: [{ weight: 55, reps: 12 }, { weight: 55, reps: 12 }, { weight: 55, reps: 12 }] }
     ]
   },
   pull: {
     title: "🟢 Pull (Back, Biceps, Rear Delts)",
     accent: "border-emerald-500",
     exercises: [
-      { id: "pull_1", name: "Lat Pulldowns", target: "Lats & Upper Back", setsCount: 3, rest: "3 min", setsData: [{ weight: 140, reps: 10 }, { weight: 140, reps: 10 }, { weight: 140, reps: 10 }] },
-      { id: "pull_2", name: "Seated Cable Rows", target: "Mid-Back Thickness", setsCount: 3, rest: "2.5 min", setsData: [{ weight: 130, reps: 10 }, { weight: 130, reps: 10 }, { weight: 130, reps: 10 }] },
-      { id: "pull_3", name: "Face Pulls", target: "Rear Delts & Rotator Cuff", setsCount: 3, rest: "2 min", setsData: [{ weight: 45, reps: 15 }, { weight: 45, reps: 15 }, { weight: 45, reps: 15 }] },
-      { id: "pull_4", name: "Bicep Curls (DB or BB)", target: "Bicep Isolation", setsCount: 3, rest: "2 min", setsData: [{ weight: 35, reps: 12 }, { weight: 35, reps: 12 }, { weight: 35, reps: 12 }] },
-      { id: "pull_5", name: "Farmer's Walk", target: "Traps, Core & Grip", setsCount: 3, rest: "2 min", setsData: [{ weight: 65, reps: 60 }, { weight: 65, reps: 60 }, { weight: 65, reps: 60 }] }
+      { id: "pull_1", equipment: "Cable", name: "Lat Pulldowns", target: "Lats & Upper Back", setsCount: 3, rest: "3 min", setsData: [{ weight: 140, reps: 10 }, { weight: 140, reps: 10 }, { weight: 140, reps: 10 }] },
+      { id: "pull_2", equipment: "Cable", name: "Seated Cable Rows", target: "Mid-Back Thickness", setsCount: 3, rest: "2.5 min", setsData: [{ weight: 130, reps: 10 }, { weight: 130, reps: 10 }, { weight: 130, reps: 10 }] },
+      { id: "pull_3", equipment: "Cable", name: "Face Pulls", target: "Rear Delts & Rotator Cuff", setsCount: 3, rest: "2 min", setsData: [{ weight: 45, reps: 15 }, { weight: 45, reps: 15 }, { weight: 45, reps: 15 }] },
+      { id: "pull_4", equipment: "Dumbbell", name: "Bicep Curls (DB or BB)", target: "Bicep Isolation", setsCount: 3, rest: "2 min", setsData: [{ weight: 35, reps: 12 }, { weight: 35, reps: 12 }, { weight: 35, reps: 12 }] },
+      { id: "pull_5", equipment: "Dumbbell", name: "Farmer's Walk", target: "Traps, Core & Grip", setsCount: 3, rest: "2 min", setsData: [{ weight: 65, reps: 60 }, { weight: 65, reps: 60 }, { weight: 65, reps: 60 }] }
     ]
   }
 };
@@ -92,8 +95,6 @@ window.showHomeView = () => {
 window.setDay = async (day) => {
   currentActiveDay = day;
   document.getElementById('home-container').classList.add('hidden');
-  
-  // Keep top navigation tabs bar visible on all views including Trends
   document.getElementById('nav-tabs-bar').classList.remove('hidden');
 
   document.querySelectorAll('.day-btn').forEach(btn => {
@@ -149,7 +150,6 @@ async function initRoutineForDay(day) {
   document.getElementById('routine-title').innerText = defaultTemplates[day] ? defaultTemplates[day].title : "Workout Session";
   let templateExercises = defaultTemplates[day] ? defaultTemplates[day].exercises : [];
 
-  // 1. Fetch Master Template
   if (currentUser) {
     try {
       const userDoc = await getDoc(doc(db, "users", currentUser.uid));
@@ -162,36 +162,22 @@ async function initRoutineForDay(day) {
     if (localTpl) templateExercises = JSON.parse(localTpl);
   }
 
-  // 2. Fetch Most Recent Logged Workout for this Day to Auto-Fill Last Weights & Reps
   let lastLoggedSession = null;
   const allLogs = await fetchAllLogs();
   const dayLogs = allLogs.filter(l => l.day === day);
-  if (dayLogs.length > 0) {
-    lastLoggedSession = dayLogs[0]; // Most recent session based on timestamp sort
-  }
+  if (dayLogs.length > 0) lastLoggedSession = dayLogs[0];
 
-  // 3. Populate Active Exercises with Last Logged Sets (falling back to template defaults)
   activeSessionExercises = JSON.parse(JSON.stringify(templateExercises)).map(ex => {
     let setsData = ex.setsData;
-    
     if (lastLoggedSession && lastLoggedSession.exercises) {
-      // Find matching exercise in past log by name (stripping numerical prefixes if needed)
       const pastEx = lastLoggedSession.exercises.find(e => {
         const cleanPast = e.name ? e.name.replace(/^\d+\.\s*/, '').trim().toLowerCase() : '';
         const cleanCurrent = ex.name ? ex.name.replace(/^\d+\.\s*/, '').trim().toLowerCase() : '';
         return cleanPast === cleanCurrent;
       });
-
-      if (pastEx && pastEx.setsData && pastEx.setsData.length > 0) {
-        setsData = JSON.parse(JSON.stringify(pastEx.setsData));
-      }
+      if (pastEx && pastEx.setsData && pastEx.setsData.length > 0) setsData = JSON.parse(JSON.stringify(pastEx.setsData));
     }
-
-    return {
-      ...ex,
-      setsData: setsData,
-      completed: false
-    };
+    return { ...ex, equipment: ex.equipment || "Barbell", setsData: setsData, completed: false };
   });
 
   renderSessionView();
@@ -203,15 +189,17 @@ function renderSessionView() {
 
   let html = '';
   if (activeSessionExercises.length === 0) {
-    html = `<div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center text-xs text-slate-400">No exercises in this session. Add one below or edit master template.</div>`;
+    html = `<div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center text-xs text-slate-400">No exercises in this session. Add one below.</div>`;
   } else {
     activeSessionExercises.forEach((ex, exIdx) => {
       html += `
         <div class="exercise-card ${ex.completed ? 'completed' : ''} bg-slate-800 border-l-4 ${dayData ? dayData.accent : 'border-blue-500'} border-y border-r border-slate-700 rounded-xl p-3.5 shadow-sm space-y-3">
           <div class="flex justify-between items-start gap-2">
-            <div class="w-full">
+            <div class="w-full flex gap-2 items-center">
+              <select onchange="updateActiveExEquipment(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold text-xs focus:outline-none focus:border-blue-500">
+                ${equipmentOptions.map(eq => `<option value="${eq}" ${ex.equipment === eq ? 'selected' : ''}>${eq}</option>`).join('')}
+              </select>
               <input type="text" value="${ex.name}" onchange="updateActiveExName(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold text-sm w-full focus:outline-none focus:border-blue-500">
-              <p class="text-xs text-slate-400 mt-1">Target: ${ex.target || 'General'} | ⏱️ Rest: ${ex.rest || '2 min'}</p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <button onclick="toggleExerciseDone(${exIdx})" class="px-3 py-1 rounded-lg text-xs font-semibold ${ex.completed ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}">
@@ -232,8 +220,8 @@ function renderSessionView() {
             ${ex.setsData.map((s, sIdx) => `
               <div class="grid grid-cols-12 gap-2 items-center">
                 <span class="col-span-2 font-bold text-slate-400">Set ${sIdx + 1}</span>
-                <input type="number" value="${s.weight}" onchange="updateSetVal(${exIdx},${sIdx}, 'weight', this.value)" class="col-span-5 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold focus:outline-none focus:border-blue-500">
-                <input type="number" value="${s.reps}" onchange="updateSetVal(${exIdx},${sIdx}, 'reps', this.value)" class="col-span-5 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-200 font-bold focus:outline-none focus:border-blue-500">
+                <input type="number" value="${s.weight}" onchange="updateSetVal(${exIdx}, ${sIdx}, 'weight', this.value)" class="col-span-5 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold focus:outline-none focus:border-blue-500">
+                <input type="number" value="${s.reps}" onchange="updateSetVal(${exIdx}, ${sIdx}, 'reps', this.value)" class="col-span-5 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-200 font-bold focus:outline-none focus:border-blue-500">
               </div>
             `).join('')}
             <div class="flex justify-between items-center pt-1.5">
@@ -255,10 +243,13 @@ function renderSessionView() {
   container.innerHTML = html;
 }
 
+window.updateActiveExEquipment = (exIdx, val) => { activeSessionExercises[exIdx].equipment = val; };
 window.updateActiveExName = (exIdx, val) => { activeSessionExercises[exIdx].name = val; };
+
 window.addCustomExerciseToActiveSession = () => {
   activeSessionExercises.push({
     id: `custom_active_${Date.now()}`,
+    equipment: "Barbell",
     name: "New Exercise",
     target: "Custom Focus",
     rest: "2 min",
@@ -297,10 +288,7 @@ window.removeFromCurrentSession = (exIdx) => {
 
 window.saveCurrentWorkout = async () => {
   const completedExercises = activeSessionExercises.filter(ex => ex.completed);
-
-  if (completedExercises.length === 0) {
-    if (!confirm("No exercises are marked as done. Save anyway?")) return;
-  }
+  if (completedExercises.length === 0 && !confirm("No exercises are marked as done. Save anyway?")) return;
 
   const customDateTimeVal = document.getElementById('workout-datetime').value;
   const sessionDate = customDateTimeVal ? new Date(customDateTimeVal) : new Date();
@@ -311,6 +299,7 @@ window.saveCurrentWorkout = async () => {
     dateFormatted: sessionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
     timestamp: sessionDate.getTime(),
     exercises: (completedExercises.length > 0 ? completedExercises : activeSessionExercises).map(ex => ({
+      equipment: ex.equipment || "Barbell",
       name: ex.name,
       setsData: ex.setsData,
       completed: ex.completed
@@ -363,14 +352,13 @@ function renderTemplateEditor() {
     html += `
       <div class="bg-slate-900 border border-slate-700/80 p-3 rounded-xl space-y-2 text-xs">
         <div class="flex justify-between items-center gap-2">
+          <select onchange="masterTemplateBuffer[${i}].equipment=this.value" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold">
+            ${equipmentOptions.map(eq => `<option value="${eq}" ${(ex.equipment || 'Barbell') === eq ? 'selected' : ''}>${eq}</option>`).join('')}
+          </select>
           <input type="text" value="${ex.name}" onchange="masterTemplateBuffer[${i}].name=this.value" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold">
           <button onclick="masterTemplateBuffer.splice(${i}, 1); renderTemplateEditor();" class="text-slate-500 hover:text-red-400 p-1">
             <i class="fa-solid fa-trash-can"></i>
           </button>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <input type="text" value="${ex.target || ''}" placeholder="Target Muscle" onchange="masterTemplateBuffer[${i}].target=this.value" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-300">
-          <input type="text" value="${ex.rest || '2 min'}" placeholder="Rest Period" onchange="masterTemplateBuffer[${i}].rest=this.value" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-300">
         </div>
       </div>
     `;
@@ -381,6 +369,7 @@ function renderTemplateEditor() {
 window.addNewExerciseToTemplate = () => {
   masterTemplateBuffer.push({
     id: `custom_${Date.now()}`,
+    equipment: "Barbell",
     name: "New Exercise",
     target: "General",
     rest: "2 min",
@@ -405,7 +394,6 @@ window.saveMasterTemplate = async () => {
   initRoutineForDay(currentActiveDay);
 };
 
-// Fetch Logs for Trends & Home Metrics
 async function fetchAllLogs() {
   let logs = [];
   if (currentUser) {
@@ -456,11 +444,7 @@ function renderHistoryList() {
         const fallbackWeight = ex.weight || 100;
         return {
           ...ex,
-          setsData: [
-            { weight: fallbackWeight, reps: 10 },
-            { weight: fallbackWeight, reps: 10 },
-            { weight: fallbackWeight, reps: 10 }
-          ]
+          setsData: [{ weight: fallbackWeight, reps: 10 }, { weight: fallbackWeight, reps: 10 }, { weight: fallbackWeight, reps: 10 }]
         };
       }
       return ex;
@@ -480,8 +464,11 @@ function renderHistoryList() {
           ${exercises.map((ex, exIdx) => `
             <div class="bg-slate-900/70 border border-slate-700/60 p-3 rounded-lg space-y-2">
               <div class="flex justify-between items-center gap-2 border-b border-slate-800 pb-1.5">
-                <input type="text" value="${ex.name}" onchange="updateHistoryExName(${logIdx},${exIdx}, this.value)" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold focus:outline-none focus:border-blue-500 text-xs">
-                <button onclick="deleteExFromHistory(${logIdx},${exIdx})" title="Delete Exercise" class="text-slate-500 hover:text-red-400 px-1">
+                <select onchange="window.fetchedLogs[${logIdx}].exercises[${exIdx}].equipment=this.value" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold">
+                  ${equipmentOptions.map(eq => `<option value="${eq}" ${(ex.equipment || 'Barbell') === eq ? 'selected' : ''}>${eq}</option>`).join('')}
+                </select>
+                <input type="text" value="${ex.name}" onchange="updateHistoryExName(${logIdx}, ${exIdx}, this.value)" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold focus:outline-none focus:border-blue-500 text-xs">
+                <button onclick="deleteExFromHistory(${logIdx}, ${exIdx})" title="Delete Exercise" class="text-slate-500 hover:text-red-400 px-1">
                   <i class="fa-solid fa-trash-can"></i>
                 </button>
               </div>
@@ -499,17 +486,9 @@ function renderHistoryList() {
                     <input type="number" value="${s.reps}" onchange="updateHistorySetVal(${logIdx}, ${exIdx}, ${sIdx}, 'reps', this.value)" class="col-span-5 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-200 font-bold focus:outline-none focus:border-blue-500">
                   </div>
                 `).join('')}
-                <div class="flex justify-between items-center pt-2">
-                  <button onclick="addSetToHistoryEx(${logIdx},${exIdx})" class="text-[11px] text-blue-400 hover:text-blue-300 font-semibold">+ Add Set</button>
-                  <button onclick="removeSetFromHistoryEx(${logIdx},${exIdx})" class="text-[11px] text-red-400 hover:text-red-300 font-semibold">- Remove Set</button>
-                </div>
               </div>
             </div>
           `).join('')}
-
-          <button onclick="addExerciseToHistoryLog(${logIdx})" class="w-full bg-slate-900 hover:bg-slate-700 border border-dashed border-slate-600 text-blue-400 font-bold py-2 rounded-lg text-xs transition">
-            + Add Exercise To Log
-          </button>
         </div>
       `;
     } else {
@@ -532,7 +511,7 @@ function renderHistoryList() {
           <div class="space-y-2 mt-2">
             ${exercises.map(ex => `
               <div class="border-b border-slate-700/40 pb-1.5">
-                <div class="font-bold text-slate-200">✅ ${ex.name}</div>
+                <div class="font-bold text-slate-200">✅ <span class="text-blue-400 text-[11px]">[${ex.equipment || 'Barbell'}]</span> ${ex.name}</div>
                 <div class="flex flex-wrap gap-2 text-[11px] text-blue-400 mt-0.5">
                   ${ex.setsData.map((s, i) => `<span>Set ${i+1}: <strong>${s.weight} lbs × ${s.reps} reps</strong></span>`).join(' • ')}
                 </div>
@@ -546,15 +525,6 @@ function renderHistoryList() {
   historyList.innerHTML = html;
 }
 
-window.addExerciseToHistoryLog = (logIdx) => {
-  window.fetchedLogs[logIdx].exercises.push({
-    name: "New Exercise",
-    completed: true,
-    setsData: [{ weight: 100, reps: 10 }, { weight: 100, reps: 10 }, { weight: 100, reps: 10 }]
-  });
-  renderHistoryList();
-};
-
 window.toggleEditHistory = (logIdx) => {
   window.fetchedLogs[logIdx].isEditing = !window.fetchedLogs[logIdx].isEditing;
   renderHistoryList();
@@ -563,34 +533,8 @@ window.toggleEditHistory = (logIdx) => {
 window.updateHistoryTitle = (logIdx, val) => { window.fetchedLogs[logIdx].title = val; };
 window.updateHistoryExName = (logIdx, exIdx, val) => { window.fetchedLogs[logIdx].exercises[exIdx].name = val; };
 
-window.addSetToHistoryEx = (logIdx, exIdx) => {
-  const ex = window.fetchedLogs[logIdx].exercises[exIdx];
-  if (!ex.setsData) {
-    const fallbackWeight = ex.weight || 100;
-    ex.setsData = [{ weight: fallbackWeight, reps: 10 }, { weight: fallbackWeight, reps: 10 }, { weight: fallbackWeight, reps: 10 }];
-  }
-  const lastSet = ex.setsData[ex.setsData.length - 1] || { weight: 100, reps: 10 };
-  ex.setsData.push({ ...lastSet });
-  renderHistoryList();
-};
-
-window.removeSetFromHistoryEx = (logIdx, exIdx) => {
-  const ex = window.fetchedLogs[logIdx].exercises[exIdx];
-  if (!ex.setsData) {
-    const fallbackWeight = ex.weight || 100;
-    ex.setsData = [{ weight: fallbackWeight, reps: 10 }, { weight: fallbackWeight, reps: 10 }];
-  } else if (ex.setsData.length > 1) {
-    ex.setsData.pop();
-  }
-  renderHistoryList();
-};
-
 window.updateHistorySetVal = (logIdx, exIdx, setIdx, field, val) => {
   const ex = window.fetchedLogs[logIdx].exercises[exIdx];
-  if (!ex.setsData) {
-    const fallbackWeight = ex.weight || 100;
-    ex.setsData = [{ weight: fallbackWeight, reps: 10 }, { weight: fallbackWeight, reps: 10 }, { weight: fallbackWeight, reps: 10 }];
-  }
   ex.setsData[setIdx][field] = parseFloat(val) || 0;
 };
 
