@@ -14,8 +14,63 @@ let masterTemplateBuffer = [];
 
 window.fetchedLogs = [];
 
-// Equipment Library Reference Map
-const equipmentOptions = ["Barbell", "Dumbbell", "Machine", "Cable", "Bodyweight", "Other"];
+// Structured Exercise Library Mapped by Equipment Type
+const EXERCISE_LIBRARY = {
+  "Barbell": [
+    "Flat Barbell Bench Press",
+    "Incline Barbell Bench Press",
+    "Standing Overhead Press (OHP)",
+    "Barbell Back Squat",
+    "Romanian Deadlifts (RDLs)",
+    "Barbell Bent-Over Row",
+    "Barbell Hip Thrust",
+    "Close-Grip Bench Press",
+    "Barbell Bicep Curl"
+  ],
+  "Dumbbell": [
+    "Incline Dumbbell Press",
+    "Flat Dumbbell Press",
+    "Dumbbell Shoulder Press",
+    "Lateral Raises",
+    "Dumbbell Bicep Curls",
+    "Hammer Curls",
+    "Dumbbell Goblet Squat",
+    "Single-Arm Dumbbell Row",
+    "Farmer's Walk"
+  ],
+  "Machine": [
+    "Hack Squat",
+    "Leg Extensions",
+    "Seated Leg Curls",
+    "Lying Leg Curls",
+    "Leg Press",
+    "Chest Press Machine",
+    "Hip Adductor Machine",
+    "Hip Abductor Machine",
+    "Machine Shoulder Press"
+  ],
+  "Cable": [
+    "Lat Pulldowns",
+    "Seated Cable Rows",
+    "Cable Chest Flys",
+    "Tricep Rope Pushdowns",
+    "Face Pulls",
+    "Cable Lateral Raises",
+    "Overhead Cable Tricep Extension",
+    "Cable Bicep Curls"
+  ],
+  "Bodyweight": [
+    "Pull-Ups",
+    "Chin-Ups",
+    "Dips",
+    "Push-Ups",
+    "Hanging Leg Raises",
+    "Inverted Rows"
+  ],
+  "Other": [
+    "Custom Exercise"
+  ]
+};
 
 const defaultTemplates = {
   legs: {
@@ -58,6 +113,16 @@ function setDefaultDateTime() {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   document.getElementById('workout-datetime').value = now.toISOString().slice(0, 16);
+}
+
+function saveDraftSession() {
+  if (currentActiveDay && activeSessionExercises.length > 0) {
+    localStorage.setItem(`draft_session_${currentActiveDay}`, JSON.stringify(activeSessionExercises));
+  }
+}
+
+function clearDraftSession(day) {
+  localStorage.removeItem(`draft_session_${day}`);
 }
 
 window.openAuthModal = () => document.getElementById('auth-modal').classList.remove('hidden');
@@ -139,7 +204,6 @@ window.setDay = async (day) => {
     
     if (!activeSessionExercises || activeSessionExercises.length === 0 || activeSessionExercises._day !== day) {
       await initRoutineForDay(day);
-      activeSessionExercises._day = day;
     } else {
       renderSessionView();
     }
@@ -148,8 +212,20 @@ window.setDay = async (day) => {
 
 async function initRoutineForDay(day) {
   document.getElementById('routine-title').innerText = defaultTemplates[day] ? defaultTemplates[day].title : "Workout Session";
-  let templateExercises = defaultTemplates[day] ? defaultTemplates[day].exercises : [];
+  
+  // 1. Check for unsaved local draft session first so working inputs are preserved
+  const savedDraft = localStorage.getItem(`draft_session_${day}`);
+  if (savedDraft) {
+    try {
+      activeSessionExercises = JSON.parse(savedDraft);
+      activeSessionExercises._day = day;
+      renderSessionView();
+      return;
+    } catch (e) { console.error("Draft load error:", e); }
+  }
 
+  // 2. Fall back to master template
+  let templateExercises = defaultTemplates[day] ? defaultTemplates[day].exercises : [];
   if (currentUser) {
     try {
       const userDoc = await getDoc(doc(db, "users", currentUser.uid));
@@ -162,6 +238,7 @@ async function initRoutineForDay(day) {
     if (localTpl) templateExercises = JSON.parse(localTpl);
   }
 
+  // 3. Auto-fill from last completed log if available
   let lastLoggedSession = null;
   const allLogs = await fetchAllLogs();
   const dayLogs = allLogs.filter(l => l.day === day);
@@ -180,6 +257,7 @@ async function initRoutineForDay(day) {
     return { ...ex, equipment: ex.equipment || "Barbell", setsData: setsData, completed: false };
   });
 
+  activeSessionExercises._day = day;
   renderSessionView();
 }
 
@@ -192,15 +270,30 @@ function renderSessionView() {
     html = `<div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center text-xs text-slate-400">No exercises in this session. Add one below.</div>`;
   } else {
     activeSessionExercises.forEach((ex, exIdx) => {
+      const currentEq = ex.equipment || "Barbell";
+      const availableOptions = EXERCISE_LIBRARY[currentEq] || EXERCISE_LIBRARY["Barbell"];
+      const isCustomName = !availableOptions.includes(ex.name);
+
       html += `
         <div class="exercise-card ${ex.completed ? 'completed' : ''} bg-slate-800 border-l-4 ${dayData ? dayData.accent : 'border-blue-500'} border-y border-r border-slate-700 rounded-xl p-3.5 shadow-sm space-y-3">
           <div class="flex justify-between items-start gap-2">
-            <div class="w-full flex gap-2 items-center">
-              <select onchange="updateActiveExEquipment(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold text-xs focus:outline-none focus:border-blue-500">
-                ${equipmentOptions.map(eq => `<option value="${eq}" ${ex.equipment === eq ? 'selected' : ''}>${eq}</option>`).join('')}
-              </select>
-              <input type="text" value="${ex.name}" onchange="updateActiveExName(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold text-sm w-full focus:outline-none focus:border-blue-500">
+            <div class="w-full space-y-1.5">
+              <div class="flex gap-2 items-center">
+                <select onchange="handleEquipmentChange(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold text-xs focus:outline-none focus:border-blue-500 shrink-0">
+                  ${Object.keys(EXERCISE_LIBRARY).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
+                </select>
+
+                <select onchange="handleExerciseSelect(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold text-xs w-full focus:outline-none focus:border-blue-500">
+                  ${availableOptions.map(opt => `<option value="${opt}" ${ex.name === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                  <option value="__CUSTOM__" ${isCustomName ? 'selected' : ''}>+ Custom Name...</option>
+                </select>
+              </div>
+
+              ${isCustomName ? `
+                <input type="text" value="${ex.name}" placeholder="Type custom exercise name..." onchange="updateActiveExName(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold text-xs w-full focus:outline-none focus:border-blue-500">
+              ` : ''}
             </div>
+
             <div class="flex items-center gap-2 shrink-0">
               <button onclick="toggleExerciseDone(${exIdx})" class="px-3 py-1 rounded-lg text-xs font-semibold ${ex.completed ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}">
                 <i class="fa-solid ${ex.completed ? 'fa-check' : 'fa-circle'} mr-1"></i> ${ex.completed ? 'Done' : 'Mark Done'}
@@ -241,16 +334,31 @@ function renderSessionView() {
   `;
 
   container.innerHTML = html;
+  saveDraftSession();
 }
 
-window.updateActiveExEquipment = (exIdx, val) => { activeSessionExercises[exIdx].equipment = val; };
-window.updateActiveExName = (exIdx, val) => { activeSessionExercises[exIdx].name = val; };
+window.handleEquipmentChange = (exIdx, newEquipment) => {
+  activeSessionExercises[exIdx].equipment = newEquipment;
+  const libraryForEq = EXERCISE_LIBRARY[newEquipment];
+  if (libraryForEq && libraryForEq.length > 0) activeSessionExercises[exIdx].name = libraryForEq[0];
+  renderSessionView();
+};
+
+window.handleExerciseSelect = (exIdx, selectedVal) => {
+  activeSessionExercises[exIdx].name = selectedVal === '__CUSTOM__' ? "Custom Exercise" : selectedVal;
+  renderSessionView();
+};
+
+window.updateActiveExName = (exIdx, val) => { 
+  activeSessionExercises[exIdx].name = val;
+  saveDraftSession();
+};
 
 window.addCustomExerciseToActiveSession = () => {
   activeSessionExercises.push({
     id: `custom_active_${Date.now()}`,
     equipment: "Barbell",
-    name: "New Exercise",
+    name: "Flat Barbell Bench Press",
     target: "Custom Focus",
     rest: "2 min",
     completed: false,
@@ -266,6 +374,7 @@ window.toggleExerciseDone = (idx) => {
 
 window.updateSetVal = (exIdx, setIdx, field, val) => {
   activeSessionExercises[exIdx].setsData[setIdx][field] = parseFloat(val) || 0;
+  saveDraftSession();
 };
 
 window.addSetToExercise = (exIdx) => {
@@ -309,7 +418,7 @@ window.saveCurrentWorkout = async () => {
   if (currentUser) {
     try {
       await addDoc(collection(db, "users", currentUser.uid, "logs"), logItem);
-      alert(`Session logged to cloud for ${logItem.dateFormatted}!`);
+      alert(`Session logged for ${logItem.dateFormatted}!`);
     } catch (e) { alert("Cloud error: " + e.message); }
   } else {
     const localLogs = JSON.parse(localStorage.getItem('ppl_logs') || '[]');
@@ -318,6 +427,7 @@ window.saveCurrentWorkout = async () => {
     alert(`Session saved locally for ${logItem.dateFormatted}!`);
   }
 
+  clearDraftSession(currentActiveDay);
   setDefaultDateTime();
   activeSessionExercises = [];
   initRoutineForDay(currentActiveDay);
@@ -349,13 +459,18 @@ function renderTemplateEditor() {
   const container = document.getElementById('template-editor-list');
   let html = '';
   masterTemplateBuffer.forEach((ex, i) => {
+    const currentEq = ex.equipment || "Barbell";
+    const availableOptions = EXERCISE_LIBRARY[currentEq] || EXERCISE_LIBRARY["Barbell"];
+
     html += `
       <div class="bg-slate-900 border border-slate-700/80 p-3 rounded-xl space-y-2 text-xs">
         <div class="flex justify-between items-center gap-2">
-          <select onchange="masterTemplateBuffer[${i}].equipment=this.value" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold">
-            ${equipmentOptions.map(eq => `<option value="${eq}" ${(ex.equipment || 'Barbell') === eq ? 'selected' : ''}>${eq}</option>`).join('')}
+          <select onchange="masterTemplateBuffer[${i}].equipment=this.value; masterTemplateBuffer[${i}].name=EXERCISE_LIBRARY[this.value][0]; renderTemplateEditor();" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold shrink-0">
+            ${Object.keys(EXERCISE_LIBRARY).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
           </select>
-          <input type="text" value="${ex.name}" onchange="masterTemplateBuffer[${i}].name=this.value" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold">
+          <select onchange="masterTemplateBuffer[${i}].name=this.value" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold">
+            ${availableOptions.map(opt => `<option value="${opt}" ${ex.name === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+          </select>
           <button onclick="masterTemplateBuffer.splice(${i}, 1); renderTemplateEditor();" class="text-slate-500 hover:text-red-400 p-1">
             <i class="fa-solid fa-trash-can"></i>
           </button>
@@ -370,7 +485,7 @@ window.addNewExerciseToTemplate = () => {
   masterTemplateBuffer.push({
     id: `custom_${Date.now()}`,
     equipment: "Barbell",
-    name: "New Exercise",
+    name: "Flat Barbell Bench Press",
     target: "General",
     rest: "2 min",
     setsData: [{ weight: 100, reps: 10 }, { weight: 100, reps: 10 }, { weight: 100, reps: 10 }]
@@ -391,6 +506,7 @@ window.saveMasterTemplate = async () => {
     alert("Master template saved locally!");
   }
   closeTemplateModal();
+  clearDraftSession(currentActiveDay);
   initRoutineForDay(currentActiveDay);
 };
 
@@ -450,45 +566,65 @@ function renderHistoryList() {
       return ex;
     });
 
+    const currentIsoDate = log.timestamp ? new Date(log.timestamp - new Date(log.timestamp).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+
     if (log.isEditing) {
       html += `
         <div class="bg-slate-800 border-2 border-blue-500/80 rounded-xl p-4 text-xs space-y-4">
-          <div class="flex justify-between items-center border-b border-slate-700 pb-2 gap-2">
-            <input type="text" value="${log.title || 'Workout Session'}" onchange="updateHistoryTitle(${logIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-100 font-bold text-sm w-full focus:outline-none focus:border-blue-500">
-            <div class="flex gap-2 shrink-0">
-              <button onclick="saveEditedLog(${logIdx})" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1 rounded transition">Save</button>
-              <button onclick="toggleEditHistory(${logIdx})" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold px-3 py-1 rounded transition">Cancel</button>
+          <div class="space-y-2 border-b border-slate-700 pb-2">
+            <div class="flex justify-between items-center gap-2">
+              <input type="text" value="${log.title || 'Workout Session'}" onchange="updateHistoryTitle(${logIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-100 font-bold text-sm w-full focus:outline-none focus:border-blue-500">
+              <div class="flex gap-2 shrink-0">
+                <button onclick="saveEditedLog(${logIdx})" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1 rounded transition">Save</button>
+                <button onclick="toggleEditHistory(${logIdx})" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold px-3 py-1 rounded transition">Cancel</button>
+              </div>
+            </div>
+            
+            <!-- Editable DateTime Picker for Past Workouts -->
+            <div class="flex items-center gap-2">
+              <span class="text-slate-400 font-bold text-[10px] uppercase">Logged Date/Time:</span>
+              <input type="datetime-local" value="${currentIsoDate}" onchange="updateHistoryDateTime(${logIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-blue-400 font-semibold text-xs focus:outline-none focus:border-blue-500">
             </div>
           </div>
 
-          ${exercises.map((ex, exIdx) => `
-            <div class="bg-slate-900/70 border border-slate-700/60 p-3 rounded-lg space-y-2">
-              <div class="flex justify-between items-center gap-2 border-b border-slate-800 pb-1.5">
-                <select onchange="window.fetchedLogs[${logIdx}].exercises[${exIdx}].equipment=this.value" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold">
-                  ${equipmentOptions.map(eq => `<option value="${eq}" ${(ex.equipment || 'Barbell') === eq ? 'selected' : ''}>${eq}</option>`).join('')}
-                </select>
-                <input type="text" value="${ex.name}" onchange="updateHistoryExName(${logIdx}, ${exIdx}, this.value)" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold focus:outline-none focus:border-blue-500 text-xs">
-                <button onclick="deleteExFromHistory(${logIdx}, ${exIdx})" title="Delete Exercise" class="text-slate-500 hover:text-red-400 px-1">
-                  <i class="fa-solid fa-trash-can"></i>
-                </button>
-              </div>
-
-              <div class="space-y-1.5 pt-1">
-                <div class="grid grid-cols-12 gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  <span class="col-span-2">Set</span>
-                  <span class="col-span-5">Weight (LBS)</span>
-                  <span class="col-span-5">Reps</span>
+          ${exercises.map((ex, exIdx) => {
+            const currentEq = ex.equipment || "Barbell";
+            const availableOptions = EXERCISE_LIBRARY[currentEq] || EXERCISE_LIBRARY["Barbell"];
+            return `
+              <div class="bg-slate-900/70 border border-slate-700/60 p-3 rounded-lg space-y-2">
+                <div class="flex justify-between items-center gap-2 border-b border-slate-800 pb-1.5">
+                  <select onchange="window.fetchedLogs[${logIdx}].exercises[${exIdx}].equipment=this.value; window.fetchedLogs[${logIdx}].exercises[${exIdx}].name=EXERCISE_LIBRARY[this.value][0]; renderHistoryList();" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold shrink-0">
+                    ${Object.keys(EXERCISE_LIBRARY).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
+                  </select>
+                  <select onchange="updateHistoryExName(${logIdx}, ${exIdx}, this.value)" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold focus:outline-none focus:border-blue-500 text-xs">
+                    ${availableOptions.map(opt => `<option value="${opt}" ${ex.name === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                  </select>
+                  <button onclick="deleteExFromHistory(${logIdx}, ${exIdx})" title="Delete Exercise" class="text-slate-500 hover:text-red-400 px-1">
+                    <i class="fa-solid fa-trash-can"></i>
+                  </button>
                 </div>
-                ${ex.setsData.map((s, sIdx) => `
-                  <div class="grid grid-cols-12 gap-2 items-center">
-                    <span class="col-span-2 text-slate-400 font-bold">Set ${sIdx + 1}</span>
-                    <input type="number" value="${s.weight}" onchange="updateHistorySetVal(${logIdx}, ${exIdx}, ${sIdx}, 'weight', this.value)" class="col-span-5 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold focus:outline-none focus:border-blue-500">
-                    <input type="number" value="${s.reps}" onchange="updateHistorySetVal(${logIdx}, ${exIdx}, ${sIdx}, 'reps', this.value)" class="col-span-5 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-200 font-bold focus:outline-none focus:border-blue-500">
+
+                <div class="space-y-1.5 pt-1">
+                  <div class="grid grid-cols-12 gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <span class="col-span-2">Set</span>
+                    <span class="col-span-5">Weight (LBS)</span>
+                    <span class="col-span-5">Reps</span>
                   </div>
-                `).join('')}
+                  ${ex.setsData.map((s, sIdx) => `
+                    <div class="grid grid-cols-12 gap-2 items-center">
+                      <span class="col-span-2 text-slate-400 font-bold">Set ${sIdx + 1}</span>
+                      <input type="number" value="${s.weight}" onchange="updateHistorySetVal(${logIdx}, ${exIdx}, ${sIdx}, 'weight', this.value)" class="col-span-5 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold focus:outline-none focus:border-blue-500">
+                      <input type="number" value="${s.reps}" onchange="updateHistorySetVal(${logIdx}, ${exIdx}, ${sIdx}, 'reps', this.value)" class="col-span-5 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-200 font-bold focus:outline-none focus:border-blue-500">
+                    </div>
+                  `).join('')}
+                </div>
               </div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
+
+          <button onclick="addExerciseToHistoryLog(${logIdx})" class="w-full bg-slate-900 hover:bg-slate-700 border border-dashed border-slate-600 text-blue-400 font-bold py-2 rounded-lg text-xs transition">
+            + Add Exercise To Log
+          </button>
         </div>
       `;
     } else {
@@ -525,6 +661,16 @@ function renderHistoryList() {
   historyList.innerHTML = html;
 }
 
+window.addExerciseToHistoryLog = (logIdx) => {
+  window.fetchedLogs[logIdx].exercises.push({
+    equipment: "Barbell",
+    name: "Flat Barbell Bench Press",
+    completed: true,
+    setsData: [{ weight: 100, reps: 10 }, { weight: 100, reps: 10 }, { weight: 100, reps: 10 }]
+  });
+  renderHistoryList();
+};
+
 window.toggleEditHistory = (logIdx) => {
   window.fetchedLogs[logIdx].isEditing = !window.fetchedLogs[logIdx].isEditing;
   renderHistoryList();
@@ -532,6 +678,14 @@ window.toggleEditHistory = (logIdx) => {
 
 window.updateHistoryTitle = (logIdx, val) => { window.fetchedLogs[logIdx].title = val; };
 window.updateHistoryExName = (logIdx, exIdx, val) => { window.fetchedLogs[logIdx].exercises[exIdx].name = val; };
+
+window.updateHistoryDateTime = (logIdx, val) => {
+  if (val) {
+    const d = new Date(val);
+    window.fetchedLogs[logIdx].timestamp = d.getTime();
+    window.fetchedLogs[logIdx].dateFormatted = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+};
 
 window.updateHistorySetVal = (logIdx, exIdx, setIdx, field, val) => {
   const ex = window.fetchedLogs[logIdx].exercises[exIdx];
@@ -550,13 +704,20 @@ window.saveEditedLog = async (logIdx) => {
   if (currentUser && log.docId) {
     try {
       const docRef = doc(db, "users", currentUser.uid, "logs", log.docId);
-      await updateDoc(docRef, { title: log.title || 'Workout Session', exercises: log.exercises });
-      alert("Log updated successfully in cloud!");
+      await updateDoc(docRef, { 
+        title: log.title || 'Workout Session', 
+        exercises: log.exercises,
+        timestamp: log.timestamp,
+        dateFormatted: log.dateFormatted
+      });
+      alert("Log updated in cloud!");
     } catch (e) { alert("Error saving log edit: " + e.message); }
   } else {
     const localLogs = JSON.parse(localStorage.getItem('ppl_logs') || '[]');
     localLogs[log.localIdx].title = log.title || 'Workout Session';
     localLogs[log.localIdx].exercises = log.exercises;
+    localLogs[log.localIdx].timestamp = log.timestamp;
+    localLogs[log.localIdx].dateFormatted = log.dateFormatted;
     localStorage.setItem('ppl_logs', JSON.stringify(localLogs));
     alert("Log updated locally!");
   }
