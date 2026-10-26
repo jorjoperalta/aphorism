@@ -11,7 +11,10 @@ let currentActiveDay = 'legs';
 let timerInterval = null;
 let activeSessionExercises = [];
 let masterTemplateBuffer = [];
-let draggedIndex = null;
+
+// Drag state tracking for real-time mobile displacement
+let dragSrcIndex = null;
+let dragOverIndex = null;
 
 window.fetchedLogs = [];
 
@@ -273,15 +276,28 @@ function renderSessionView() {
       const isCustomName = !availableOptions.includes(ex.name);
 
       html += `
-        <div draggable="true" ondragstart="handleDragStart(${exIdx})" ondragover="handleDragOver(event)" ondrop="handleDrop(${exIdx})" class="exercise-card ${ex.completed ? 'completed' : ''} bg-slate-800 border-l-4 ${dayData ? dayData.accent : 'border-blue-500'} border-y border-r border-slate-700 rounded-xl p-3.5 shadow-sm space-y-3 cursor-grab active:cursor-grabbing">
+        <div data-ex-index="${exIdx}" draggable="true" 
+             ondragstart="handleDragStart(event, ${exIdx})" 
+             ondragover="handleDragOver(event, ${exIdx})" 
+             ondrop="handleDrop(event, ${exIdx})" 
+             ondragend="handleDragEnd(event)"
+             ontouchstart="handleTouchStart(event, ${exIdx})"
+             ontouchmove="handleTouchMove(event)"
+             ontouchend="handleTouchEnd(event)"
+             class="exercise-card ${ex.completed ? 'completed' : ''} bg-slate-800 border-l-4 ${dayData ? dayData.accent : 'border-blue-500'} border-y border-r border-slate-700 rounded-xl p-3.5 shadow-sm space-y-3 transition-transform duration-150">
+          
           <div class="flex justify-between items-start gap-2">
             <div class="flex-1 space-y-1.5 min-w-0">
               <div class="flex gap-2 items-center">
-                <i class="fa-solid fa-grip-vertical text-slate-500 text-xs shrink-0 cursor-grab"></i>
+                <!-- Mobile Drag Grip Handle -->
+                <i class="fa-solid fa-grip-vertical text-slate-500 text-xs shrink-0 cursor-grab touch-none p-1"></i>
+                
+                <!-- Equipment Selector -->
                 <select onchange="handleEquipmentChange(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-blue-400 font-bold text-xs focus:outline-none focus:border-blue-500 shrink-0">
                   ${Object.keys(EXERCISE_LIBRARY).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
                 </select>
 
+                <!-- Exercise Name Auto-Fill Selector -->
                 <select onchange="handleExerciseSelect(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-slate-100 font-bold text-xs flex-1 w-full focus:outline-none focus:border-blue-500 truncate">
                   ${availableOptions.map(opt => `<option value="${opt}" ${ex.name === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                   <option value="__CUSTOM__" ${isCustomName ? 'selected' : ''}>+ Custom Name...</option>
@@ -294,7 +310,7 @@ function renderSessionView() {
             </div>
 
             <div class="flex items-center gap-1.5 shrink-0">
-              <!-- Up/Down Swap Buttons -->
+              <!-- Fast Arrow Reorder Buttons -->
               <div class="flex flex-col gap-0.5">
                 <button onclick="swapActiveExercise(${exIdx}, -1)" ${exIdx === 0 ? 'disabled class="text-slate-700 cursor-not-allowed px-1"' : 'class="text-slate-400 hover:text-blue-400 px-1"'}>
                   <i class="fa-solid fa-arrow-up text-[11px]"></i>
@@ -346,7 +362,7 @@ function renderSessionView() {
   saveDraftSession();
 }
 
-// In-Place Swap Helper Functions (Preserves all set data & weights)
+// In-Place Arrow Swap (Preserves all set weights & inputs)
 window.swapActiveExercise = (exIdx, direction) => {
   const targetIdx = exIdx + direction;
   if (targetIdx < 0 || targetIdx >= activeSessionExercises.length) return;
@@ -356,13 +372,65 @@ window.swapActiveExercise = (exIdx, direction) => {
   renderSessionView();
 };
 
-window.handleDragStart = (idx) => { draggedIndex = idx; };
-window.handleDragOver = (e) => { e.preventDefault(); };
-window.handleDrop = (targetIdx) => {
-  if (draggedIndex === null || draggedIndex === targetIdx) return;
-  const movedItem = activeSessionExercises.splice(draggedIndex, 1)[0];
+// HTML5 Desktop Drag-and-Drop with Visual Shift
+window.handleDragStart = (e, idx) => {
+  dragSrcIndex = idx;
+  e.target.classList.add('opacity-40', 'scale-[0.98]');
+};
+
+window.handleDragOver = (e, targetIdx) => {
+  e.preventDefault();
+  if (dragSrcIndex === null || dragSrcIndex === targetIdx) return;
+  dragOverIndex = targetIdx;
+};
+
+window.handleDrop = (e, targetIdx) => {
+  e.preventDefault();
+  if (dragSrcIndex === null || dragSrcIndex === targetIdx) return;
+  const movedItem = activeSessionExercises.splice(dragSrcIndex, 1)[0];
   activeSessionExercises.splice(targetIdx, 0, movedItem);
-  draggedIndex = null;
+  dragSrcIndex = null;
+  dragOverIndex = null;
+  renderSessionView();
+};
+
+window.handleDragEnd = (e) => {
+  e.target.classList.remove('opacity-40', 'scale-[0.98]');
+  dragSrcIndex = null;
+  dragOverIndex = null;
+};
+
+// Touch-Based Displacement Reordering (Mobile Long-Press & Slide)
+let touchSrcIndex = null;
+
+window.handleTouchStart = (e, idx) => {
+  // Only trigger drag if touch originated on the grip handle or top bar
+  if (e.target.closest('input') || e.target.closest('select') || e.target.closest('button')) return;
+  touchSrcIndex = idx;
+  const card = e.currentTarget;
+  card.classList.add('opacity-60', 'border-blue-500', 'z-20', 'scale-[1.01]');
+};
+
+window.handleTouchMove = (e) => {
+  if (touchSrcIndex === null) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+  const targetCard = elements.find(el => el.hasAttribute && el.hasAttribute('data-ex-index'));
+  
+  if (targetCard) {
+    const targetIdx = parseInt(targetCard.getAttribute('data-ex-index'), 10);
+    if (!isNaN(targetIdx) && targetIdx !== touchSrcIndex) {
+      const movedItem = activeSessionExercises.splice(touchSrcIndex, 1)[0];
+      activeSessionExercises.splice(targetIdx, 0, movedItem);
+      touchSrcIndex = targetIdx;
+      renderSessionView();
+    }
+  }
+};
+
+window.handleTouchEnd = () => {
+  touchSrcIndex = null;
   renderSessionView();
 };
 
