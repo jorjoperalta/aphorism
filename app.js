@@ -14,7 +14,7 @@ let masterTemplateBuffer = [];
 
 window.fetchedLogs = [];
 
-// Structured Exercise Library Mapped by Equipment Type
+// Exercise Library Mapped by Equipment Type
 const EXERCISE_LIBRARY = {
   "Barbell": [
     "Flat Barbell Bench Press",
@@ -213,7 +213,6 @@ window.setDay = async (day) => {
 async function initRoutineForDay(day) {
   document.getElementById('routine-title').innerText = defaultTemplates[day] ? defaultTemplates[day].title : "Workout Session";
   
-  // 1. Check for unsaved local draft session first so working inputs are preserved
   const savedDraft = localStorage.getItem(`draft_session_${day}`);
   if (savedDraft) {
     try {
@@ -224,7 +223,6 @@ async function initRoutineForDay(day) {
     } catch (e) { console.error("Draft load error:", e); }
   }
 
-  // 2. Fall back to master template
   let templateExercises = defaultTemplates[day] ? defaultTemplates[day].exercises : [];
   if (currentUser) {
     try {
@@ -238,7 +236,6 @@ async function initRoutineForDay(day) {
     if (localTpl) templateExercises = JSON.parse(localTpl);
   }
 
-  // 3. Auto-fill from last completed log if available
   let lastLoggedSession = null;
   const allLogs = await fetchAllLogs();
   const dayLogs = allLogs.filter(l => l.day === day);
@@ -277,13 +274,15 @@ function renderSessionView() {
       html += `
         <div class="exercise-card ${ex.completed ? 'completed' : ''} bg-slate-800 border-l-4 ${dayData ? dayData.accent : 'border-blue-500'} border-y border-r border-slate-700 rounded-xl p-3.5 shadow-sm space-y-3">
           <div class="flex justify-between items-start gap-2">
-            <div class="w-full space-y-1.5">
+            <div class="flex-1 space-y-1.5 min-w-0">
               <div class="flex gap-2 items-center">
-                <select onchange="handleEquipmentChange(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold text-xs focus:outline-none focus:border-blue-500 shrink-0">
+                <!-- Equipment Selector -->
+                <select onchange="handleEquipmentChange(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-blue-400 font-bold text-xs focus:outline-none focus:border-blue-500 shrink-0">
                   ${Object.keys(EXERCISE_LIBRARY).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
                 </select>
 
-                <select onchange="handleExerciseSelect(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold text-xs w-full focus:outline-none focus:border-blue-500">
+                <!-- Exercise Name Auto-Fill Selector (Full Flex) -->
+                <select onchange="handleExerciseSelect(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-slate-100 font-bold text-xs flex-1 w-full focus:outline-none focus:border-blue-500 truncate">
                   ${availableOptions.map(opt => `<option value="${opt}" ${ex.name === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                   <option value="__CUSTOM__" ${isCustomName ? 'selected' : ''}>+ Custom Name...</option>
                 </select>
@@ -294,11 +293,21 @@ function renderSessionView() {
               ` : ''}
             </div>
 
-            <div class="flex items-center gap-2 shrink-0">
-              <button onclick="toggleExerciseDone(${exIdx})" class="px-3 py-1 rounded-lg text-xs font-semibold ${ex.completed ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}">
+            <div class="flex items-center gap-1 shrink-0">
+              <!-- Reorder Buttons (Up/Down) -->
+              <div class="flex flex-col gap-0.5">
+                <button onclick="moveActiveExercise(${exIdx}, -1)" ${exIdx === 0 ? 'disabled class="text-slate-700 cursor-not-allowed px-1"' : 'class="text-slate-400 hover:text-blue-400 px-1"'}>
+                  <i class="fa-solid fa-chevron-up text-[10px]"></i>
+                </button>
+                <button onclick="moveActiveExercise(${exIdx}, 1)" ${exIdx === activeSessionExercises.length - 1 ? 'disabled class="text-slate-700 cursor-not-allowed px-1"' : 'class="text-slate-400 hover:text-blue-400 px-1"'}>
+                  <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                </button>
+              </div>
+
+              <button onclick="toggleExerciseDone(${exIdx})" class="px-2.5 py-1 rounded-lg text-xs font-semibold ${ex.completed ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}">
                 <i class="fa-solid ${ex.completed ? 'fa-check' : 'fa-circle'} mr-1"></i> ${ex.completed ? 'Done' : 'Mark Done'}
               </button>
-              <button onclick="removeFromCurrentSession(${exIdx})" title="Remove from this session" class="text-slate-500 hover:text-red-400 p-1">
+              <button onclick="removeFromCurrentSession(${exIdx})" title="Remove exercise" class="text-slate-500 hover:text-red-400 p-1">
                 <i class="fa-solid fa-trash-can"></i>
               </button>
             </div>
@@ -329,13 +338,22 @@ function renderSessionView() {
 
   html += `
     <button onclick="addCustomExerciseToActiveSession()" class="w-full bg-slate-800 hover:bg-slate-700 border border-dashed border-slate-600 text-blue-400 font-bold py-2.5 rounded-xl text-xs transition flex justify-center items-center gap-1.5">
-      <i class="fa-solid fa-plus"></i> Add Custom Exercise To Session
+      <i class="fa-solid fa-plus"></i> Add Exercise To Session
     </button>
   `;
 
   container.innerHTML = html;
   saveDraftSession();
 }
+
+window.moveActiveExercise = (exIdx, direction) => {
+  const targetIdx = exIdx + direction;
+  if (targetIdx < 0 || targetIdx >= activeSessionExercises.length) return;
+  const temp = activeSessionExercises[exIdx];
+  activeSessionExercises[exIdx] = activeSessionExercises[targetIdx];
+  activeSessionExercises[targetIdx] = temp;
+  renderSessionView();
+};
 
 window.handleEquipmentChange = (exIdx, newEquipment) => {
   activeSessionExercises[exIdx].equipment = newEquipment;
@@ -468,18 +486,36 @@ function renderTemplateEditor() {
           <select onchange="masterTemplateBuffer[${i}].equipment=this.value; masterTemplateBuffer[${i}].name=EXERCISE_LIBRARY[this.value][0]; renderTemplateEditor();" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold shrink-0">
             ${Object.keys(EXERCISE_LIBRARY).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
           </select>
-          <select onchange="masterTemplateBuffer[${i}].name=this.value" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold">
+          <select onchange="masterTemplateBuffer[${i}].name=this.value" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold flex-1">
             ${availableOptions.map(opt => `<option value="${opt}" ${ex.name === opt ? 'selected' : ''}>${opt}</option>`).join('')}
           </select>
-          <button onclick="masterTemplateBuffer.splice(${i}, 1); renderTemplateEditor();" class="text-slate-500 hover:text-red-400 p-1">
-            <i class="fa-solid fa-trash-can"></i>
-          </button>
+
+          <div class="flex items-center gap-1 shrink-0">
+            <button onclick="moveTemplateExercise(${i}, -1)" ${i === 0 ? 'disabled class="text-slate-700 px-1"' : 'class="text-slate-400 hover:text-blue-400 px-1"'}>
+              <i class="fa-solid fa-chevron-up text-[10px]"></i>
+            </button>
+            <button onclick="moveTemplateExercise(${i}, 1)" ${i === masterTemplateBuffer.length - 1 ? 'disabled class="text-slate-700 px-1"' : 'class="text-slate-400 hover:text-blue-400 px-1"'}>
+              <i class="fa-solid fa-chevron-down text-[10px]"></i>
+            </button>
+            <button onclick="masterTemplateBuffer.splice(${i}, 1); renderTemplateEditor();" class="text-slate-500 hover:text-red-400 p-1">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
         </div>
       </div>
     `;
   });
   container.innerHTML = html;
 }
+
+window.moveTemplateExercise = (i, direction) => {
+  const target = i + direction;
+  if (target < 0 || target >= masterTemplateBuffer.length) return;
+  const temp = masterTemplateBuffer[i];
+  masterTemplateBuffer[i] = masterTemplateBuffer[target];
+  masterTemplateBuffer[target] = temp;
+  renderTemplateEditor();
+};
 
 window.addNewExerciseToTemplate = () => {
   masterTemplateBuffer.push({
@@ -580,7 +616,6 @@ function renderHistoryList() {
               </div>
             </div>
             
-            <!-- Editable DateTime Picker for Past Workouts -->
             <div class="flex items-center gap-2">
               <span class="text-slate-400 font-bold text-[10px] uppercase">Logged Date/Time:</span>
               <input type="datetime-local" value="${currentIsoDate}" onchange="updateHistoryDateTime(${logIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-blue-400 font-semibold text-xs focus:outline-none focus:border-blue-500">
@@ -596,12 +631,21 @@ function renderHistoryList() {
                   <select onchange="window.fetchedLogs[${logIdx}].exercises[${exIdx}].equipment=this.value; window.fetchedLogs[${logIdx}].exercises[${exIdx}].name=EXERCISE_LIBRARY[this.value][0]; renderHistoryList();" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold shrink-0">
                     ${Object.keys(EXERCISE_LIBRARY).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
                   </select>
-                  <select onchange="updateHistoryExName(${logIdx}, ${exIdx}, this.value)" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold focus:outline-none focus:border-blue-500 text-xs">
+                  <select onchange="updateHistoryExName(${logIdx}, ${exIdx}, this.value)" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold focus:outline-none focus:border-blue-500 text-xs flex-1">
                     ${availableOptions.map(opt => `<option value="${opt}" ${ex.name === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                   </select>
-                  <button onclick="deleteExFromHistory(${logIdx}, ${exIdx})" title="Delete Exercise" class="text-slate-500 hover:text-red-400 px-1">
-                    <i class="fa-solid fa-trash-can"></i>
-                  </button>
+
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button onclick="moveHistoryExercise(${logIdx}, ${exIdx}, -1)" ${exIdx === 0 ? 'disabled class="text-slate-700 px-1"' : 'class="text-slate-400 hover:text-blue-400 px-1"'}>
+                      <i class="fa-solid fa-chevron-up text-[10px]"></i>
+                    </button>
+                    <button onclick="moveHistoryExercise(${logIdx}, ${exIdx}, 1)" ${exIdx === exercises.length - 1 ? 'disabled class="text-slate-700 px-1"' : 'class="text-slate-400 hover:text-blue-400 px-1"'}>
+                      <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                    </button>
+                    <button onclick="deleteExFromHistory(${logIdx}, ${exIdx})" title="Delete Exercise" class="text-slate-500 hover:text-red-400 px-1">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  </div>
                 </div>
 
                 <div class="space-y-1.5 pt-1">
@@ -660,6 +704,16 @@ function renderHistoryList() {
   });
   historyList.innerHTML = html;
 }
+
+window.moveHistoryExercise = (logIdx, exIdx, direction) => {
+  const exercises = window.fetchedLogs[logIdx].exercises;
+  const targetIdx = exIdx + direction;
+  if (targetIdx < 0 || targetIdx >= exercises.length) return;
+  const temp = exercises[exIdx];
+  exercises[exIdx] = exercises[targetIdx];
+  exercises[targetIdx] = temp;
+  renderHistoryList();
+};
 
 window.addExerciseToHistoryLog = (logIdx) => {
   window.fetchedLogs[logIdx].exercises.push({
