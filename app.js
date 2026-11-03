@@ -12,66 +12,54 @@ let timerInterval = null;
 let activeSessionExercises = [];
 let masterTemplateBuffer = [];
 let sortableInstance = null;
-
 window.fetchedLogs = [];
 
-// Structured Exercise Library Mapped by Equipment Type
-const EXERCISE_LIBRARY = {
-  "Barbell": [
-    "Flat Barbell Bench Press",
-    "Incline Barbell Bench Press",
-    "Standing Overhead Press (OHP)",
-    "Barbell Back Squat",
-    "Romanian Deadlifts (RDLs)",
-    "Barbell Bent-Over Row",
-    "Barbell Hip Thrust",
-    "Close-Grip Bench Press",
-    "Barbell Bicep Curl"
-  ],
-  "Dumbbell": [
-    "Incline Dumbbell Press",
-    "Flat Dumbbell Press",
-    "Dumbbell Shoulder Press",
-    "Lateral Raises",
-    "Dumbbell Bicep Curls",
-    "Hammer Curls",
-    "Dumbbell Goblet Squat",
-    "Single-Arm Dumbbell Row",
-    "Farmer's Walk"
-  ],
-  "Machine": [
-    "Hack Squat",
-    "Leg Extensions",
-    "Seated Leg Curls",
-    "Lying Leg Curls",
-    "Leg Press",
-    "Chest Press Machine",
-    "Hip Adductor Machine",
-    "Hip Abductor Machine",
-    "Machine Shoulder Press"
-  ],
-  "Cable": [
-    "Lat Pulldowns",
-    "Seated Cable Rows",
-    "Cable Chest Flys",
-    "Tricep Rope Pushdowns",
-    "Face Pulls",
-    "Cable Lateral Raises",
-    "Overhead Cable Tricep Extension",
-    "Cable Bicep Curls"
-  ],
-  "Bodyweight": [
-    "Pull-Ups",
-    "Chin-Ups",
-    "Dips",
-    "Push-Ups",
-    "Hanging Leg Raises",
-    "Inverted Rows"
-  ],
-  "Other": [
-    "Custom Exercise"
-  ]
+// Lightweight Fallback (Until external library loads)
+let globalExerciseLibrary = {
+  "Barbell": ["Flat Barbell Bench Press", "Barbell Back Squat", "Romanian Deadlifts (RDLs)", "Standing Overhead Press (OHP)"],
+  "Dumbbell": ["Incline Dumbbell Press", "Lateral Raises", "Bicep Curls (DB or BB)", "Farmer's Walk"],
+  "Machine": ["Hack Squat", "Leg Extensions", "Seated Leg Curls", "Hip Adductor Machine"],
+  "Cable": ["Lat Pulldowns", "Seated Cable Rows", "Cable Chest Flys", "Tricep Rope Pushdowns", "Face Pulls"],
+  "Bodyweight": ["Pull-Ups", "Push-Ups", "Dips"],
+  "Other": ["Custom Exercise"]
 };
+
+// Fetch 800+ Exercise Database
+async function loadExternalExerciseLibrary() {
+  try {
+    const res = await fetch('https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json');
+    if (!res.ok) throw new Error("Fetch failed");
+    const data = await res.json();
+    
+    const lib = { "Barbell": [], "Dumbbell": [], "Machine": [], "Cable": [], "Bodyweight": [], "Kettlebell": [], "Band": [], "Other": [] };
+    
+    data.forEach(ex => {
+      if (!ex.name || !ex.equipment) return;
+      const eq = ex.equipment.toLowerCase();
+      let cat = "Other";
+      if (eq.includes('barbell')) cat = "Barbell";
+      else if (eq.includes('dumbbell')) cat = "Dumbbell";
+      else if (eq.includes('machine')) cat = "Machine";
+      else if (eq.includes('cable')) cat = "Cable";
+      else if (eq.includes('body weight') || eq.includes('bodyweight')) cat = "Bodyweight";
+      else if (eq.includes('kettlebell')) cat = "Kettlebell";
+      else if (eq.includes('band')) cat = "Band";
+
+      const formattedName = ex.name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      if (!lib[cat].includes(formattedName)) lib[cat].push(formattedName);
+    });
+
+    Object.keys(lib).forEach(k => lib[k].sort());
+    globalExerciseLibrary = lib;
+    
+    if (!document.getElementById('workout-container').classList.contains('hidden')) {
+      renderSessionView();
+    }
+  } catch (e) {
+    console.warn("Could not load external exercise DB, utilizing local fallback defaults.", e);
+  }
+}
+loadExternalExerciseLibrary();
 
 const defaultTemplates = {
   legs: {
@@ -269,7 +257,7 @@ function renderSessionView() {
   } else {
     activeSessionExercises.forEach((ex, exIdx) => {
       const currentEq = ex.equipment || "Barbell";
-      const availableOptions = EXERCISE_LIBRARY[currentEq] || EXERCISE_LIBRARY["Barbell"];
+      const availableOptions = globalExerciseLibrary[currentEq] || globalExerciseLibrary["Other"] || [];
       const isCustomName = !availableOptions.includes(ex.name);
 
       html += `
@@ -282,12 +270,10 @@ function renderSessionView() {
                   <i class="fa-solid fa-grip-vertical text-xs"></i>
                 </div>
 
-                <!-- Equipment Selector -->
                 <select onchange="handleEquipmentChange(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-blue-400 font-bold text-xs focus:outline-none focus:border-blue-500 shrink-0">
-                  ${Object.keys(EXERCISE_LIBRARY).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
+                  ${Object.keys(globalExerciseLibrary).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
                 </select>
 
-                <!-- Exercise Name Auto-Fill Selector -->
                 <select onchange="handleExerciseSelect(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-slate-100 font-bold text-xs flex-1 w-full focus:outline-none focus:border-blue-500 truncate">
                   ${availableOptions.map(opt => `<option value="${opt}" ${ex.name === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                   <option value="__CUSTOM__" ${isCustomName ? 'selected' : ''}>+ Custom Name...</option>
@@ -295,12 +281,11 @@ function renderSessionView() {
               </div>
 
               ${isCustomName ? `
-                <input type="text" value="${ex.name}" placeholder="Type custom exercise name..." onchange="updateActiveExName(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold text-xs w-full focus:outline-none focus:border-blue-500">
+                <input type="text" value="${ex.name}" placeholder="Type custom exercise name..." onchange="updateActiveExName(${exIdx}, this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-100 font-bold text-xs w-full focus:outline-none focus:border-blue-500">
               ` : ''}
             </div>
 
             <div class="flex items-center gap-1.5 shrink-0">
-              <!-- Fast Arrow Reorder Buttons -->
               <div class="flex flex-col gap-0.5">
                 <button onclick="swapActiveExercise(${exIdx}, -1)" ${exIdx === 0 ? 'disabled class="text-slate-700 cursor-not-allowed px-1"' : 'class="text-slate-400 hover:text-blue-400 px-1"'}>
                   <i class="fa-solid fa-arrow-up text-[11px]"></i>
@@ -353,7 +338,6 @@ function renderSessionView() {
   saveDraftSession();
 }
 
-// SortableJS Drag-and-Drop Displacement Engine
 function initSortableReordering() {
   const container = document.getElementById('workout-container');
   if (!container || typeof Sortable === 'undefined') return;
@@ -376,7 +360,6 @@ function initSortableReordering() {
   });
 }
 
-// Fast In-Place Arrow Swap Helper
 window.swapActiveExercise = (exIdx, direction) => {
   const targetIdx = exIdx + direction;
   if (targetIdx < 0 || targetIdx >= activeSessionExercises.length) return;
@@ -388,7 +371,7 @@ window.swapActiveExercise = (exIdx, direction) => {
 
 window.handleEquipmentChange = (exIdx, newEquipment) => {
   activeSessionExercises[exIdx].equipment = newEquipment;
-  const libraryForEq = EXERCISE_LIBRARY[newEquipment];
+  const libraryForEq = globalExerciseLibrary[newEquipment];
   if (libraryForEq && libraryForEq.length > 0) activeSessionExercises[exIdx].name = libraryForEq[0];
   renderSessionView();
 };
@@ -407,7 +390,7 @@ window.addCustomExerciseToActiveSession = () => {
   activeSessionExercises.push({
     id: `custom_active_${Date.now()}`,
     equipment: "Barbell",
-    name: "Flat Barbell Bench Press",
+    name: "Custom Exercise",
     target: "Custom Focus",
     rest: "2 min",
     completed: false,
@@ -509,17 +492,26 @@ function renderTemplateEditor() {
   let html = '';
   masterTemplateBuffer.forEach((ex, i) => {
     const currentEq = ex.equipment || "Barbell";
-    const availableOptions = EXERCISE_LIBRARY[currentEq] || EXERCISE_LIBRARY["Barbell"];
+    const availableOptions = globalExerciseLibrary[currentEq] || globalExerciseLibrary["Other"] || [];
+    const isCustomName = !availableOptions.includes(ex.name);
 
     html += `
       <div class="bg-slate-900 border border-slate-700/80 p-3 rounded-xl space-y-2 text-xs">
-        <div class="flex justify-between items-center gap-2">
-          <select onchange="masterTemplateBuffer[${i}].equipment=this.value; masterTemplateBuffer[${i}].name=EXERCISE_LIBRARY[this.value][0]; renderTemplateEditor();" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold shrink-0">
-            ${Object.keys(EXERCISE_LIBRARY).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
-          </select>
-          <select onchange="masterTemplateBuffer[${i}].name=this.value" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold flex-1 truncate">
-            ${availableOptions.map(opt => `<option value="${opt}" ${ex.name === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-          </select>
+        <div class="flex justify-between items-start gap-2">
+          <div class="flex-1 space-y-1.5 min-w-0">
+            <div class="flex gap-2 items-center">
+              <select onchange="masterTemplateBuffer[${i}].equipment=this.value; masterTemplateBuffer[${i}].name=globalExerciseLibrary[this.value][0]; renderTemplateEditor();" class="bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-blue-400 font-bold shrink-0">
+                ${Object.keys(globalExerciseLibrary).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
+              </select>
+              <select onchange="handleTemplateExerciseSelect(${i}, this.value)" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-slate-100 font-bold flex-1 truncate">
+                ${availableOptions.map(opt => `<option value="${opt}" ${ex.name === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                <option value="__CUSTOM__" ${isCustomName ? 'selected' : ''}>+ Custom Name...</option>
+              </select>
+            </div>
+            ${isCustomName ? `
+              <input type="text" value="${ex.name}" placeholder="Type custom exercise name..." onchange="masterTemplateBuffer[${i}].name=this.value" class="bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-slate-100 font-bold text-xs w-full focus:outline-none focus:border-blue-500">
+            ` : ''}
+          </div>
 
           <div class="flex items-center gap-1.5 shrink-0">
             <button onclick="swapTemplateExercise(${i}, -1)" ${i === 0 ? 'disabled class="text-slate-700 px-1"' : 'class="text-slate-400 hover:text-blue-400 px-1"'}>
@@ -539,6 +531,11 @@ function renderTemplateEditor() {
   container.innerHTML = html;
 }
 
+window.handleTemplateExerciseSelect = (i, val) => {
+  masterTemplateBuffer[i].name = val === '__CUSTOM__' ? "Custom Exercise" : val;
+  renderTemplateEditor();
+};
+
 window.swapTemplateExercise = (i, direction) => {
   const target = i + direction;
   if (target < 0 || target >= masterTemplateBuffer.length) return;
@@ -552,7 +549,7 @@ window.addNewExerciseToTemplate = () => {
   masterTemplateBuffer.push({
     id: `custom_${Date.now()}`,
     equipment: "Barbell",
-    name: "Flat Barbell Bench Press",
+    name: "Custom Exercise",
     target: "General",
     rest: "2 min",
     setsData: [{ weight: 100, reps: 10 }, { weight: 100, reps: 10 }, { weight: 100, reps: 10 }]
@@ -655,18 +652,28 @@ function renderHistoryList() {
 
           ${exercises.map((ex, exIdx) => {
             const currentEq = ex.equipment || "Barbell";
-            const availableOptions = EXERCISE_LIBRARY[currentEq] || EXERCISE_LIBRARY["Barbell"];
+            const availableOptions = globalExerciseLibrary[currentEq] || globalExerciseLibrary["Other"] || [];
+            const isCustomName = !availableOptions.includes(ex.name);
+
             return `
               <div class="bg-slate-900/70 border border-slate-700/60 p-3 rounded-lg space-y-2">
-                <div class="flex justify-between items-center gap-2 border-b border-slate-800 pb-1.5">
-                  <select onchange="window.fetchedLogs[${logIdx}].exercises[${exIdx}].equipment=this.value; window.fetchedLogs[${logIdx}].exercises[${exIdx}].name=EXERCISE_LIBRARY[this.value][0]; renderHistoryList();" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-bold shrink-0">
-                    ${Object.keys(EXERCISE_LIBRARY).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
-                  </select>
-                  <select onchange="updateHistoryExName(${logIdx}, ${exIdx}, this.value)" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-100 font-bold focus:outline-none focus:border-blue-500 text-xs flex-1 truncate">
-                    ${availableOptions.map(opt => `<option value="${opt}" ${ex.name === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-                  </select>
+                <div class="flex justify-between items-start gap-2 border-b border-slate-800 pb-1.5">
+                  <div class="flex-1 space-y-1.5 min-w-0">
+                    <div class="flex gap-2 items-center">
+                      <select onchange="window.fetchedLogs[${logIdx}].exercises[${exIdx}].equipment=this.value; window.fetchedLogs[${logIdx}].exercises[${exIdx}].name=globalExerciseLibrary[this.value][0]; renderHistoryList();" class="bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-blue-400 font-bold shrink-0">
+                        ${Object.keys(globalExerciseLibrary).map(eq => `<option value="${eq}" ${currentEq === eq ? 'selected' : ''}>${eq}</option>`).join('')}
+                      </select>
+                      <select onchange="updateHistoryExDropdown(${logIdx}, ${exIdx}, this.value)" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-slate-100 font-bold focus:outline-none focus:border-blue-500 text-xs flex-1 truncate">
+                        ${availableOptions.map(opt => `<option value="${opt}" ${ex.name === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                        <option value="__CUSTOM__" ${isCustomName ? 'selected' : ''}>+ Custom Name...</option>
+                      </select>
+                    </div>
+                    ${isCustomName ? `
+                      <input type="text" value="${ex.name}" placeholder="Type custom exercise name..." onchange="updateHistoryExName(${logIdx}, ${exIdx}, this.value)" class="bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-slate-100 font-bold text-xs w-full focus:outline-none focus:border-blue-500">
+                    ` : ''}
+                  </div>
 
-                  <div class="flex items-center gap-1.5 shrink-0">
+                  <div class="flex items-center gap-1.5 shrink-0 mt-1">
                     <button onclick="swapHistoryExercise(${logIdx}, ${exIdx}, -1)" ${exIdx === 0 ? 'disabled class="text-slate-700 px-1"' : 'class="text-slate-400 hover:text-blue-400 px-1"'}>
                       <i class="fa-solid fa-arrow-up text-[11px]"></i>
                     </button>
@@ -736,6 +743,11 @@ function renderHistoryList() {
   historyList.innerHTML = html;
 }
 
+window.updateHistoryExDropdown = (logIdx, exIdx, val) => {
+  window.fetchedLogs[logIdx].exercises[exIdx].name = val === '__CUSTOM__' ? "Custom Exercise" : val;
+  renderHistoryList();
+};
+
 window.swapHistoryExercise = (logIdx, exIdx, direction) => {
   const exercises = window.fetchedLogs[logIdx].exercises;
   const targetIdx = exIdx + direction;
@@ -749,7 +761,7 @@ window.swapHistoryExercise = (logIdx, exIdx, direction) => {
 window.addExerciseToHistoryLog = (logIdx) => {
   window.fetchedLogs[logIdx].exercises.push({
     equipment: "Barbell",
-    name: "Flat Barbell Bench Press",
+    name: "Custom Exercise",
     completed: true,
     setsData: [{ weight: 100, reps: 10 }, { weight: 100, reps: 10 }, { weight: 100, reps: 10 }]
   });
