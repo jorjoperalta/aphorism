@@ -92,7 +92,17 @@
           <p id="home-last-date" class="text-xs font-bold text-slate-200 truncate pt-1">None</p>
         </div>
       </div>
+      <div class="flex gap-3 mt-6">
+        <button onclick="setDay('history')" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl text-sm transition flex justify-center items-center gap-2">
+          <i class="fa-solid fa-clock-rotate-left"></i> View History
+        </button>
+        <button onclick="setDay('analytics')" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-xl text-sm transition flex justify-center items-center gap-2">
+          <i class="fa-solid fa-chart-simple"></i> View Analytics
+        </button>
+      </div>
     </section>
+
+    
 
     <!-- REST TIMER WIDGET -->
     <div id="rest-timer-widget" class="hidden bg-slate-800 border border-slate-700 rounded-xl p-3 flex justify-between items-center shadow-md">
